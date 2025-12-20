@@ -97,7 +97,7 @@ def create_html_viewer(results, prompt):
         ep_name = res["endpoint"]["name"]
         if res.get("success"):
             stats = res["stats"]
-            timings = stats.get("timings", {{}})
+            timings = stats.get("timings", {})
             html_content += f"""
             <div class="card">
                 <h2>{ep_name}</h2>
@@ -127,9 +127,17 @@ def create_html_viewer(results, prompt):
         f.write(html_content)
     return os.path.abspath("viewer.html")
 
+import sys
+
 def main():
     print("--- Dual FLUX.2 Generator ---")
-    prompt = input("Enter your prompt: ").strip()
+    
+    # Check if prompt is passed via CLI arguments
+    if len(sys.argv) > 1:
+        prompt = " ".join(sys.argv[1:]).strip()
+    else:
+        prompt = input("Enter your prompt: ").strip()
+        
     if not prompt:
         print("Prompt cannot be empty.")
         return
