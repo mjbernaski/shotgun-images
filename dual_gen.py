@@ -128,14 +128,30 @@ def create_html_viewer(results, prompt):
     return os.path.abspath("viewer.html")
 
 import sys
+import argparse
+import prompt_gen
 
 def main():
     print("--- Dual FLUX.2 Generator ---")
     
-    # Check if prompt is passed via CLI arguments
-    if len(sys.argv) > 1:
-        prompt = " ".join(sys.argv[1:]).strip()
+    parser = argparse.ArgumentParser(description="Generate images on two endpoints.")
+    parser.add_argument("prompt", nargs="*", help="The prompt or steering concept")
+    parser.add_argument("-r", "--random", action="store_true", help="Generate a random prompt (ad-lib). If a prompt is provided, it is used as the steering concept.")
+    
+    args = parser.parse_args()
+    
+    # Combine prompt parts if provided (e.g., "blue cat" becomes ["blue", "cat"] via nargs)
+    user_input = " ".join(args.prompt).strip() if args.prompt else None
+    
+    if args.random:
+        # Ad-lib mode
+        prompt = prompt_gen.generate_prompt(steering_concept=user_input)
+        print(f"Generated Prompt: {prompt}")
+    elif user_input:
+        # Literal mode
+        prompt = user_input
     else:
+        # Interactive mode fallback
         prompt = input("Enter your prompt: ").strip()
         
     if not prompt:
