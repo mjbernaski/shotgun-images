@@ -1,12 +1,22 @@
 import random
 import sys
+import os
+import json
+
 try:
     from openai import OpenAI
 except ImportError:
     OpenAI = None
 
+def load_config():
+    config_path = os.path.join(os.path.dirname(__file__), "config.json")
+    with open(config_path, "r") as f:
+        return json.load(f)
+
+CONFIG = load_config()
+
 # Local LM Studio Configuration
-LM_STUDIO_URL = "http://localhost:1234/v1"
+LM_STUDIO_URL = CONFIG.get("lm_studio_url", "http://localhost:1234/v1")
 MODEL_ID = "gpt-oss-20b"
 
 # --- Fallback Lists (Backup) ---

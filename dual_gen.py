@@ -4,10 +4,18 @@ import prompt_gen
 import csv
 import time
 import os
+import json
 import requests
 import concurrent.futures
 import webbrowser
 from datetime import datetime
+
+def load_config():
+    config_path = os.path.join(os.path.dirname(__file__), "config.json")
+    with open(config_path, "r") as f:
+        return json.load(f)
+
+CONFIG = load_config()
 
 # Configuration
 ENDPOINTS = [
@@ -95,14 +103,17 @@ def generate_and_download(endpoint, prompt):
         img_response = requests.get(download_url)
         img_response.raise_for_status()
         
-        # Save locally
+        # Save to output directory
+        output_dir = CONFIG.get("output_directory", ".")
+        os.makedirs(output_dir, exist_ok=True)
         local_filename = f"gen_{endpoint['ip'].replace('.', '_')}_{image_filename}"
-        with open(local_filename, "wb") as f:
+        local_path = os.path.join(output_dir, local_filename)
+        with open(local_path, "wb") as f:
             f.write(img_response.content)
             
         return {
             "success": True,
-            "local_path": local_filename,
+            "local_path": local_path,
             "endpoint": endpoint,
             "stats": image_info,
             "duration": time.time() - start_time
