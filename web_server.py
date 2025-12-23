@@ -163,15 +163,20 @@ def api_gallery():
         return jsonify([])
 
     images = []
-    for f in sorted(os.listdir(output_dir), reverse=True):
+    for f in os.listdir(output_dir):
+        if f.startswith("._"):
+            continue
         if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
-            stat = os.stat(os.path.join(output_dir, f))
+            filepath = os.path.join(output_dir, f)
+            stat = os.stat(filepath)
             images.append({
                 "filename": f,
                 "url": f"/images/{f}",
                 "created": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "mtime": stat.st_mtime,
                 "size": stat.st_size
             })
+    images.sort(key=lambda x: x["mtime"], reverse=True)
     return jsonify(images[:100])
 
 if __name__ == "__main__":
