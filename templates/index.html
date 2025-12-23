@@ -384,7 +384,9 @@
 
             try {
                 let res;
+                console.log('selectedImageFile:', selectedImageFile);
                 if (selectedImageFile) {
+                    console.log('Sending with image:', selectedImageFile.name, selectedImageFile.size);
                     const formData = new FormData();
                     formData.append('prompt', prompt);
                     formData.append('random', random);
@@ -395,6 +397,7 @@
                         body: formData
                     });
                 } else {
+                    console.log('Sending without image');
                     res = await fetch('/api/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

@@ -61,6 +61,8 @@ def index():
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
     image_base64 = None
+    print(f"[WebServer] Content-Type: {request.content_type}")
+    print(f"[WebServer] Files: {list(request.files.keys())}")
 
     if request.content_type and request.content_type.startswith("multipart/form-data"):
         prompt = request.form.get("prompt", "").strip()
@@ -71,6 +73,7 @@ def api_generate():
             if image_file.filename:
                 image_data = image_file.read()
                 image_base64 = base64.b64encode(image_data).decode("utf-8")
+                print(f"[WebServer] Received image: {image_file.filename} ({len(image_data)} bytes, {len(image_base64)} base64 chars)")
     else:
         data = request.json or {}
         prompt = data.get("prompt", "").strip()

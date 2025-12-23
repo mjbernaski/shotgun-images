@@ -83,8 +83,12 @@ def generate_and_download(endpoint, prompt, image_base64=None):
     payload = DEFAULT_CONFIG.copy()
     payload["prompt"] = prompt
     if image_base64:
-        payload["image"] = image_base64
-    
+        if not image_base64.startswith("data:"):
+            image_base64 = f"data:image/png;base64,{image_base64}"
+        payload["input_image"] = image_base64
+        payload["strength"] = 0.75
+        print(f"[{endpoint['name']}] Including input_image ({len(image_base64)} chars)")
+
     print(f"[{endpoint['name']}] Sending request...")
     
     try:
