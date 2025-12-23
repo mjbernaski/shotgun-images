@@ -26,7 +26,8 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
     """Background thread for running generation."""
     jobs[job_id]["status"] = "running"
     jobs[job_id]["results"] = []
-    jobs[job_id]["endpoint_status"] = {ep["name"]: "pending" for ep in ENDPOINTS}
+    jobs[job_id]["endpoint_status"] = {ep["name"]: {"state": "pending", "start_time": None, "elapsed": None} for ep in ENDPOINTS}
+    jobs[job_id]["started_at"] = time.time()
 
     for i in range(count):
         if use_random:
@@ -36,8 +37,9 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
 
         jobs[job_id]["current_run"] = i + 1
         jobs[job_id]["current_prompt"] = current_prompt
+        start_time = time.time()
         for ep in ENDPOINTS:
-            jobs[job_id]["endpoint_status"][ep["name"]] = "generating"
+            jobs[job_id]["endpoint_status"][ep["name"]] = {"state": "generating", "start_time": start_time, "elapsed": None}
 
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -52,7 +54,12 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
                 res = future.result()
                 run_results.append(res)
                 log_result(res, current_prompt)
-                jobs[job_id]["endpoint_status"][ep["name"]] = "done" if res.get("success") else "error"
+                elapsed = time.time() - start_time
+                jobs[job_id]["endpoint_status"][ep["name"]] = {
+                    "state": "done" if res.get("success") else "error",
+                    "start_time": start_time,
+                    "elapsed": round(elapsed, 1)
+                }
 
         jobs[job_id]["results"].append({
             "prompt": current_prompt,

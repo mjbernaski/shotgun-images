@@ -381,15 +381,37 @@
             }
         }
 
-        function renderEndpoints(jobEndpointStatus = null) {
+        let generationStartTime = null;
+
+        function renderEndpoints(jobEndpointStatus = null, jobStartedAt = null) {
             const container = document.getElementById('endpoints-bar');
+            const now = Date.now() / 1000;
+
             container.innerHTML = endpointsData.map(ep => {
                 let dotClass = ep.status;
                 let statusText = ep.status;
+                let timeText = '';
+
                 if (jobEndpointStatus && jobEndpointStatus[ep.name]) {
-                    dotClass = jobEndpointStatus[ep.name];
-                    statusText = jobEndpointStatus[ep.name];
+                    const epStatus = jobEndpointStatus[ep.name];
+                    if (typeof epStatus === 'object') {
+                        dotClass = epStatus.state;
+                        if (epStatus.state === 'generating' && epStatus.start_time) {
+                            const elapsed = now - epStatus.start_time;
+                            timeText = formatTime(elapsed);
+                            statusText = 'generating';
+                        } else if (epStatus.elapsed !== null) {
+                            timeText = formatTime(epStatus.elapsed);
+                            statusText = epStatus.state;
+                        } else {
+                            statusText = epStatus.state;
+                        }
+                    } else {
+                        dotClass = epStatus;
+                        statusText = epStatus;
+                    }
                 }
+
                 return `
                     <div class="endpoint-card">
                         <div class="endpoint-dot ${dotClass}"></div>
@@ -397,10 +419,21 @@
                             <div class="endpoint-name">${ep.name}</div>
                             <div class="endpoint-detail">${ep.ip}:${ep.port}</div>
                         </div>
-                        <div class="endpoint-status-text">${statusText}</div>
+                        <div class="endpoint-status-text">
+                            ${statusText}${timeText ? ' <strong>' + timeText + '</strong>' : ''}
+                        </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            if (mins > 0) {
+                return `${mins}m ${secs}s`;
+            }
+            return `${secs}s`;
         }
 
         loadEndpoints();
