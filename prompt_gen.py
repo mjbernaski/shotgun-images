@@ -38,43 +38,68 @@ def generate_fallback_prompt(steering_concept=None):
     details = ", ".join(random.sample(DETAILS, 2))
     return f"{subject}, {style} by {artist}, {light}, {details}"
 
-def generate_prompt(steering_concept=None):
+def generate_prompt(steering_concept=None, image_base64=None):
     """
     Generates a prompt using the local LLM.
+    If image_base64 is provided, uses vision model to describe/transform the image.
     Falls back to list-based generation on error.
     """
     if not OpenAI:
         print("[Warning] 'openai' module not found. Using fallback generator.")
         return generate_fallback_prompt(steering_concept)
 
-    client = OpenAI(base_url=LM_STUDIO_URL, api_key="lm-studio")
+    client = OpenAI(base_url=LM_STUDIO_URL, api_key="lm-studio", timeout=300.0)
 
-    system_msg = (
-        "You are an expert prompt engineer for Stable Diffusion/FLUX image generation. "
-        "Your goal is to create highly visual, detailed, and creative image prompts. "
-        "Return ONLY the prompt string. Do not add quotes or explanations."
-    )
+    if image_base64:
+        if steering_concept:
+            user_msg = (
+                f"Look at this image and create a detailed image generation prompt to transform it "
+                f"based on this concept: '{steering_concept}'. "
+                "Describe the key elements you see and how to enhance/transform them. "
+                "Return ONLY the prompt string."
+            )
+        else:
+            user_msg = (
+                "Look at this image and create a detailed image generation prompt that describes it "
+                "with artistic enhancements. Add style, lighting, and creative details. "
+                "Return ONLY the prompt string."
+            )
 
-    if steering_concept:
-        user_msg = (
-            f"Create a detailed, high-quality image prompt based on the concept: '{steering_concept}'. "
-            "Add artistic style, lighting, and details to make it a masterpiece."
-        )
+        if not image_base64.startswith("data:"):
+            image_url = f"data:image/png;base64,{image_base64}"
+        else:
+            image_url = image_base64
+
+        messages = [
+            {"role": "system", "content": "You are a prompt engineer. Your output should be ONLY the final stable diffusion prompt string. No reasoning, no chatter."},
+            {"role": "user", "content": [
+                {"type": "text", "text": user_msg},
+                {"type": "image_url", "image_url": {"url": image_url}}
+            ]}
+        ]
+        print(f"[LLM] Requesting vision-based prompt from {MODEL_ID}...")
     else:
-        user_msg = (
-            "Generate a random, highly creative, and visually stunning image prompt. "
-            "Choose a unique subject (fantasy, sci-fi, nature, etc.) and describe it vividly."
-        )
+        if steering_concept:
+            user_msg = (
+                f"Create a detailed, high-quality image prompt based on the concept: '{steering_concept}'. "
+                "Add artistic style, lighting, and details to make it a masterpiece."
+            )
+        else:
+            user_msg = (
+                "Generate a random, highly creative, and visually stunning image prompt. "
+                "Choose a unique subject (fantasy, sci-fi, nature, etc.) and describe it vividly."
+            )
 
-    print(f"[LLM] Requesting prompt from {MODEL_ID}...")
-    
+        messages = [
+            {"role": "system", "content": "You are a prompt engineer. Your output should be ONLY the final stable diffusion prompt string. No reasoning, no chatter."},
+            {"role": "user", "content": user_msg}
+        ]
+        print(f"[LLM] Requesting prompt from {MODEL_ID}...")
+
     try:
         response = client.chat.completions.create(
             model=MODEL_ID,
-            messages=[
-                {"role": "system", "content": "You are a prompt engineer. Your output should be ONLY the final stable diffusion prompt string. No reasoning, no chatter."},
-                {"role": "user", "content": user_msg}
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=500
         )

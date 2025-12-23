@@ -30,7 +30,7 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
 
     for i in range(count):
         if use_random:
-            current_prompt = prompt_gen.generate_prompt(steering_concept=steering_concept)
+            current_prompt = prompt_gen.generate_prompt(steering_concept=steering_concept, image_base64=image_base64)
         else:
             current_prompt = prompt
 
