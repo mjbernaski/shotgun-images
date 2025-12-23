@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dual Image Generator</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+
+        .form-section {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .form-group { margin-bottom: 16px; }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #0f0f23;
+            color: #fff;
+            font-size: 16px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        textarea:focus { outline: none; border-color: #00d4ff; }
+
+        .options {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #00d4ff;
+        }
+        input[type="number"] {
+            width: 70px;
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0f0f23;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #0066ff);
+            color: white;
+        }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+
+        .status-bar {
+            background: #16213e;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .status-bar.active { display: block; }
+        .status-text { color: #ffd700; }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #333;
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .results-section { margin-top: 24px; }
+        .result-group {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .result-prompt {
+            color: #ffd700;
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+            word-break: break-word;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        .image-card {
+            background: #0f0f23;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .image-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: pointer;
+        }
+        .image-meta {
+            padding: 10px;
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .image-meta .endpoint { color: #00d4ff; font-weight: 600; }
+        .image-error {
+            padding: 20px;
+            color: #ff6b6b;
+            text-align: center;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: #16213e;
+            border: none;
+            border-radius: 8px;
+            color: #aaa;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .tab.active {
+            background: #00d4ff;
+            color: #000;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 8px;
+        }
+        .gallery-item {
+            aspect-ratio: 1;
+            overflow: hidden;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            padding: 20px;
+        }
+        .modal.active { display: flex; align-items: center; justify-content: center; }
+        .modal img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 8px;
+        }
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 2rem;
+            color: white;
+            cursor: pointer;
+        }
+
+        .image-upload {
+            border: 2px dashed #444;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #0f0f23;
+        }
+        .image-upload:hover, .image-upload.dragover {
+            border-color: #00d4ff;
+            background: #1a1a3e;
+        }
+        .image-upload.has-image {
+            border-color: #4caf50;
+        }
+        .image-upload input[type="file"] {
+            display: none;
+        }
+        .image-upload-text {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .image-preview {
+            max-width: 200px;
+            max-height: 150px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .clear-image {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dual Image Generator</h1>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('generate')">Generate</button>
+            <button class="tab" onclick="showTab('gallery')">Gallery</button>
+        </div>
+
+        <div id="generate-tab">
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="prompt">Prompt (or steering concept if random)</label>
+                    <textarea id="prompt" placeholder="A futuristic city at sunset..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Input Image (optional, for img2img)</label>
+                    <div class="image-upload" id="image-upload" onclick="document.getElementById('image-input').click()">
+                        <input type="file" id="image-input" accept="image/*" onchange="handleImageSelect(event)">
+                        <div id="upload-content">
+                            <div class="image-upload-text">Click or drag an image here</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group options">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="random">
+                        <label for="random" style="margin:0">Random / LLM prompt</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <label for="count" style="margin:0">Count:</label>
+                        <input type="number" id="count" value="1" min="1" max="10">
+                    </div>
+                </div>
+                <button class="btn-primary" id="generate-btn" onclick="generate()">Generate</button>
+            </div>
+
+            <div class="status-bar" id="status-bar">
+                <span class="spinner"></span>
+                <span class="status-text" id="status-text">Generating...</span>
+            </div>
+
+            <div class="results-section" id="results"></div>
+        </div>
+
+        <div id="gallery-tab" style="display:none">
+            <div class="gallery-grid" id="gallery"></div>
+        </div>
+    </div>
+
+    <div class="modal" id="modal" onclick="closeModal()">
+        <span class="modal-close">&times;</span>
+        <img id="modal-img" src="">
+    </div>
+
+    <script>
+        let currentJobId = null;
+        let pollInterval = null;
+        let selectedImageFile = null;
+
+        const uploadArea = document.getElementById('image-upload');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                document.getElementById('image-input').files = files;
+                handleImageSelect({ target: { files: files } });
+            }
+        });
+
+        function handleImageSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedImageFile = file;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('upload-content').innerHTML = `
+                        <img src="${e.target.result}" class="image-preview">
+                        <br><button type="button" class="clear-image" onclick="clearImage(event)">Remove</button>
+                    `;
+                    uploadArea.classList.add('has-image');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function clearImage(event) {
+            event.stopPropagation();
+            selectedImageFile = null;
+            document.getElementById('image-input').value = '';
+            document.getElementById('upload-content').innerHTML = `
+                <div class="image-upload-text">Click or drag an image here</div>
+            `;
+            uploadArea.classList.remove('has-image');
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add('active');
+            document.getElementById('generate-tab').style.display = tab === 'generate' ? 'block' : 'none';
+            document.getElementById('gallery-tab').style.display = tab === 'gallery' ? 'block' : 'none';
+            if (tab === 'gallery') loadGallery();
+        }
+
+        async function generate() {
+            const prompt = document.getElementById('prompt').value;
+            const random = document.getElementById('random').checked;
+            const count = parseInt(document.getElementById('count').value) || 1;
+
+            if (!random && !prompt.trim()) {
+                alert('Please enter a prompt or enable random mode');
+                return;
+            }
+
+            document.getElementById('generate-btn').disabled = true;
+            document.getElementById('status-bar').classList.add('active');
+            document.getElementById('status-text').textContent = 'Starting...';
+
+            try {
+                let res;
+                if (selectedImageFile) {
+                    const formData = new FormData();
+                    formData.append('prompt', prompt);
+                    formData.append('random', random);
+                    formData.append('count', count);
+                    formData.append('image', selectedImageFile);
+                    res = await fetch('/api/generate', {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    res = await fetch('/api/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt, random, count })
+                    });
+                }
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                currentJobId = data.job_id;
+                pollStatus();
+            } catch (e) {
+                alert('Error: ' + e.message);
+                resetUI();
+            }
+        }
+
+        function pollStatus() {
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${currentJobId}`);
+                    const job = await res.json();
+
+                    if (job.status === 'running') {
+                        document.getElementById('status-text').textContent =
+                            `Run ${job.current_run}/${job.count}: ${job.current_prompt?.substring(0, 50)}...`;
+                    }
+
+                    if (job.status === 'complete') {
+                        clearInterval(pollInterval);
+                        displayResults(job.results);
+                        resetUI();
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 1000);
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('results');
+            let html = '';
+
+            for (const run of results) {
+                html += `<div class="result-group">
+                    <div class="result-prompt"><strong>Prompt:</strong> ${escapeHtml(run.prompt)}</div>
+                    <div class="image-grid">`;
+
+                for (const img of run.images) {
+                    if (img.success) {
+                        const filename = img.local_path.split('/').pop();
+                        html += `<div class="image-card">
+                            <img src="/images/${filename}" onclick="openModal(this.src)" loading="lazy">
+                            <div class="image-meta">
+                                <span class="endpoint">${img.endpoint.name}</span><br>
+                                Seed: ${img.stats?.seed || 'N/A'} | ${img.duration?.toFixed(1)}s
+                            </div>
+                        </div>`;
+                    } else {
+                        html += `<div class="image-card">
+                            <div class="image-error">${img.endpoint.name}<br>${img.error}</div>
+                        </div>`;
+                    }
+                }
+                html += '</div></div>';
+            }
+
+            container.innerHTML = html + container.innerHTML;
+        }
+
+        function resetUI() {
+            document.getElementById('generate-btn').disabled = false;
+            document.getElementById('status-bar').classList.remove('active');
+        }
+
+        async function loadGallery() {
+            try {
+                const res = await fetch('/api/gallery');
+                const images = await res.json();
+
+                document.getElementById('gallery').innerHTML = images.map(img =>
+                    `<div class="gallery-item">
+                        <img src="${img.url}" onclick="openModal(this.src)" loading="lazy">
+                    </div>`
+                ).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function openModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>
