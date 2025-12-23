@@ -4,11 +4,14 @@ import time
 import uuid
 import base64
 import threading
+import requests
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 
 import prompt_gen
 from dual_gen import generate_and_download, log_result, ENDPOINTS, CONFIG
+
+endpoint_status = {ep["name"]: {"status": "unknown", "last_check": None} for ep in ENDPOINTS}
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
@@ -23,6 +26,7 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
     """Background thread for running generation."""
     jobs[job_id]["status"] = "running"
     jobs[job_id]["results"] = []
+    jobs[job_id]["endpoint_status"] = {ep["name"]: "pending" for ep in ENDPOINTS}
 
     for i in range(count):
         if use_random:
@@ -32,6 +36,8 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
 
         jobs[job_id]["current_run"] = i + 1
         jobs[job_id]["current_prompt"] = current_prompt
+        for ep in ENDPOINTS:
+            jobs[job_id]["endpoint_status"][ep["name"]] = "generating"
 
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -42,9 +48,11 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
 
             run_results = []
             for future in concurrent.futures.as_completed(future_to_endpoint):
+                ep = future_to_endpoint[future]
                 res = future.result()
                 run_results.append(res)
                 log_result(res, current_prompt)
+                jobs[job_id]["endpoint_status"][ep["name"]] = "done" if res.get("success") else "error"
 
         jobs[job_id]["results"].append({
             "prompt": current_prompt,
@@ -120,6 +128,25 @@ def api_jobs():
 def serve_image(filename):
     output_dir = CONFIG.get("output_directory", ".")
     return send_from_directory(output_dir, filename)
+
+@app.route("/api/endpoints")
+def api_endpoints():
+    """Check health of all endpoints."""
+    results = []
+    for ep in ENDPOINTS:
+        status = {"name": ep["name"], "ip": ep["ip"], "port": ep["port"]}
+        try:
+            url = f"http://{ep['ip']}:{ep['port']}/"
+            resp = requests.get(url, timeout=3)
+            status["status"] = "online"
+        except requests.exceptions.Timeout:
+            status["status"] = "timeout"
+        except requests.exceptions.ConnectionError:
+            status["status"] = "offline"
+        except Exception as e:
+            status["status"] = "online"
+        results.append(status)
+    return jsonify(results)
 
 @app.route("/api/gallery")
 def api_gallery():
