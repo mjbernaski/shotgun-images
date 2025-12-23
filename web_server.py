@@ -2,6 +2,7 @@ import os
 import json
 import time
 import uuid
+import base64
 import threading
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
@@ -18,7 +19,7 @@ def load_config():
     with open(config_path, "r") as f:
         return json.load(f)
 
-def run_generation(job_id, prompt, use_random, steering_concept, count):
+def run_generation(job_id, prompt, use_random, steering_concept, count, image_base64=None):
     """Background thread for running generation."""
     jobs[job_id]["status"] = "running"
     jobs[job_id]["results"] = []
@@ -35,7 +36,7 @@ def run_generation(job_id, prompt, use_random, steering_concept, count):
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_endpoint = {
-                executor.submit(generate_and_download, ep, current_prompt): ep
+                executor.submit(generate_and_download, ep, current_prompt, image_base64): ep
                 for ep in ENDPOINTS
             }
 
@@ -59,11 +60,23 @@ def index():
 
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
-    data = request.json or {}
+    image_base64 = None
 
-    prompt = data.get("prompt", "").strip()
-    use_random = data.get("random", False)
-    count = int(data.get("count", 1))
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        prompt = request.form.get("prompt", "").strip()
+        use_random = request.form.get("random", "").lower() in ("true", "1", "yes")
+        count = int(request.form.get("count", 1))
+        if "image" in request.files:
+            image_file = request.files["image"]
+            if image_file.filename:
+                image_data = image_file.read()
+                image_base64 = base64.b64encode(image_data).decode("utf-8")
+    else:
+        data = request.json or {}
+        prompt = data.get("prompt", "").strip()
+        use_random = data.get("random", False)
+        count = int(data.get("count", 1))
+        image_base64 = data.get("image")
 
     if not use_random and not prompt:
         return jsonify({"error": "Prompt is required when not using random mode"}), 400
@@ -75,6 +88,7 @@ def api_generate():
         "prompt": prompt,
         "random": use_random,
         "count": count,
+        "has_image": image_base64 is not None,
         "current_run": 0,
         "current_prompt": "",
         "results": [],
@@ -83,7 +97,7 @@ def api_generate():
 
     thread = threading.Thread(
         target=run_generation,
-        args=(job_id, prompt, use_random, prompt if use_random else None, count)
+        args=(job_id, prompt, use_random, prompt if use_random else None, count, image_base64)
     )
     thread.start()
 

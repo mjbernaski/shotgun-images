@@ -72,15 +72,18 @@ def log_result(result, prompt):
                 "error": result.get("error", "Unknown error")
             })
 
-def generate_and_download(endpoint, prompt):
+def generate_and_download(endpoint, prompt, image_base64=None):
     """
     Sends a generation request to the endpoint and downloads the result.
+    Optionally accepts a base64-encoded image for image-to-image generation.
     """
     base_url = f"http://{endpoint['ip']}:{endpoint['port']}"
     api_url = f"{base_url}/generate"
-    
+
     payload = DEFAULT_CONFIG.copy()
     payload["prompt"] = prompt
+    if image_base64:
+        payload["image"] = image_base64
     
     print(f"[{endpoint['name']}] Sending request...")
     
