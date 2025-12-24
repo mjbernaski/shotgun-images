@@ -27,11 +27,23 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
     jobs[job_id]["status"] = "running"
     jobs[job_id]["results"] = []
     jobs[job_id]["endpoint_status"] = {ep["name"]: {"state": "pending", "start_time": None, "elapsed": None} for ep in ENDPOINTS}
+    jobs[job_id]["llm_status"] = {"state": "idle", "start_time": None, "elapsed": None, "model": None, "source": None}
     jobs[job_id]["started_at"] = time.time()
 
     for i in range(count):
         if use_random:
-            current_prompt = prompt_gen.generate_prompt(steering_concept=steering_concept, image_base64=image_base64)
+            jobs[job_id]["llm_status"] = {"state": "generating", "start_time": time.time(), "elapsed": None, "model": None, "source": None}
+            llm_result = prompt_gen.generate_prompt(steering_concept=steering_concept, image_base64=image_base64, return_details=True)
+            current_prompt = llm_result["prompt"]
+            jobs[job_id]["llm_status"] = {
+                "state": "done" if llm_result["source"] == "llm" else "fallback",
+                "start_time": jobs[job_id]["llm_status"]["start_time"],
+                "elapsed": llm_result["elapsed"],
+                "model": llm_result["model"],
+                "source": llm_result["source"],
+                "mode": llm_result["mode"],
+                "error": llm_result.get("error")
+            }
         else:
             current_prompt = prompt
 

@@ -2,6 +2,7 @@ import random
 import sys
 import os
 import json
+import time
 
 try:
     from openai import OpenAI
@@ -15,9 +16,8 @@ def load_config():
 
 CONFIG = load_config()
 
-# Local LM Studio Configuration
 LM_STUDIO_URL = CONFIG.get("lm_studio_url", "http://localhost:1234/v1")
-MODEL_ID = "gpt-oss-20b"
+MODEL_ID = CONFIG.get("lm_studio_model", "gpt-oss-20b")
 
 # --- Fallback Lists (Backup) ---
 SUBJECTS = ["a majestic lion", "a futuristic cityscape", "a serene lake", "an astronaut", "a steampunk robot"]
@@ -38,15 +38,32 @@ def generate_fallback_prompt(steering_concept=None):
     details = ", ".join(random.sample(DETAILS, 2))
     return f"{subject}, {style} by {artist}, {light}, {details}"
 
-def generate_prompt(steering_concept=None, image_base64=None):
+def generate_prompt(steering_concept=None, image_base64=None, return_details=False):
     """
     Generates a prompt using the local LLM.
     If image_base64 is provided, uses vision model to describe/transform the image.
     Falls back to list-based generation on error.
+
+    If return_details=True, returns a dict with prompt, timing, and status info.
     """
+    start_time = time.time()
+    result = {
+        "prompt": None,
+        "elapsed": None,
+        "model": MODEL_ID,
+        "url": LM_STUDIO_URL,
+        "mode": "vision" if image_base64 else "text",
+        "source": "llm",
+        "error": None
+    }
+
     if not OpenAI:
         print("[Warning] 'openai' module not found. Using fallback generator.")
-        return generate_fallback_prompt(steering_concept)
+        prompt = generate_fallback_prompt(steering_concept)
+        result["prompt"] = prompt
+        result["source"] = "fallback"
+        result["elapsed"] = round(time.time() - start_time, 2)
+        return result if return_details else prompt
 
     client = OpenAI(base_url=LM_STUDIO_URL, api_key="lm-studio", timeout=300.0)
 
@@ -103,31 +120,35 @@ def generate_prompt(steering_concept=None, image_base64=None):
             temperature=0.7,
             max_tokens=500
         )
-        
+
         msg = response.choices[0].message
         prompt = msg.content.strip() if msg.content else ""
-        
-        # Handle reasoning models that might leave content empty but have reasoning_content
+
         if not prompt and hasattr(msg, 'reasoning_content') and msg.reasoning_content:
             prompt = msg.reasoning_content.strip()
         elif not prompt and 'reasoning' in msg.model_extra:
-            # Some local servers put it in model_extra or model_fields
             prompt = msg.model_extra['reasoning'].strip()
-            
-        # Clean up if the LLM adds quotes despite instructions
+
         prompt = prompt.strip('"').strip("'")
-        
-        # If it's a reasoning block, it might be long. Let's hope it followed instructions.
-        # If it's still empty, return fallback.
+
         if not prompt:
-             return generate_fallback_prompt(steering_concept)
-             
-        return prompt
+            prompt = generate_fallback_prompt(steering_concept)
+            result["source"] = "fallback"
+
+        result["prompt"] = prompt
+        result["elapsed"] = round(time.time() - start_time, 2)
+        print(f"[LLM] Generated prompt in {result['elapsed']}s: {prompt[:80]}...")
+        return result if return_details else prompt
 
     except Exception as e:
         print(f"[Error] LLM generation failed: {e}")
         print("[Info] Switching to fallback generator.")
-        return generate_fallback_prompt(steering_concept)
+        prompt = generate_fallback_prompt(steering_concept)
+        result["prompt"] = prompt
+        result["source"] = "fallback"
+        result["error"] = str(e)
+        result["elapsed"] = round(time.time() - start_time, 2)
+        return result if return_details else prompt
 
 if __name__ == "__main__":
     print(generate_prompt())

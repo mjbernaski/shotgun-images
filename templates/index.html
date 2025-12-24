@@ -306,6 +306,31 @@
             font-size: 0.75rem;
             color: #aaa;
         }
+        .llm-card {
+            background: #1e2a4a;
+            border: 1px solid #00d4ff33;
+        }
+        .llm-card .endpoint-name {
+            color: #ffd700;
+        }
+        .endpoint-dot.idle { background: #555; }
+        .current-prompt-box {
+            background: #0f0f23;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #ccc;
+            max-height: 100px;
+            overflow-y: auto;
+            word-break: break-word;
+        }
+        .current-prompt-box .prompt-label {
+            color: #ffd700;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
@@ -348,8 +373,14 @@
             </div>
 
             <div class="status-bar" id="status-bar">
-                <span class="spinner"></span>
-                <span class="status-text" id="status-text">Generating...</span>
+                <div>
+                    <span class="spinner"></span>
+                    <span class="status-text" id="status-text">Generating...</span>
+                </div>
+                <div class="current-prompt-box" id="current-prompt-box" style="display:none">
+                    <div class="prompt-label">Generated Prompt:</div>
+                    <div id="current-prompt-text"></div>
+                </div>
             </div>
 
             <div class="results-section" id="results"></div>
@@ -383,11 +414,47 @@
 
         let generationStartTime = null;
 
-        function renderEndpoints(jobEndpointStatus = null, jobStartedAt = null) {
+        function renderEndpoints(jobEndpointStatus = null, jobStartedAt = null, llmStatus = null) {
             const container = document.getElementById('endpoints-bar');
             const now = Date.now() / 1000;
 
-            container.innerHTML = endpointsData.map(ep => {
+            let llmHtml = '';
+            if (llmStatus) {
+                let dotClass = llmStatus.state || 'idle';
+                let statusText = llmStatus.state || 'idle';
+                let timeText = '';
+                let detailText = llmStatus.model || 'LM Studio';
+
+                if (llmStatus.state === 'generating' && llmStatus.start_time) {
+                    const elapsed = now - llmStatus.start_time;
+                    timeText = formatTime(elapsed);
+                } else if (llmStatus.elapsed !== null && llmStatus.elapsed !== undefined) {
+                    timeText = formatTime(llmStatus.elapsed);
+                }
+
+                if (llmStatus.mode) {
+                    detailText += ` (${llmStatus.mode})`;
+                }
+                if (llmStatus.source === 'fallback') {
+                    statusText = 'fallback';
+                    dotClass = 'error';
+                }
+
+                llmHtml = `
+                    <div class="endpoint-card llm-card">
+                        <div class="endpoint-dot ${dotClass}"></div>
+                        <div class="endpoint-info">
+                            <div class="endpoint-name">LLM Prompt</div>
+                            <div class="endpoint-detail">${detailText}</div>
+                        </div>
+                        <div class="endpoint-status-text">
+                            ${statusText}${timeText ? ' <strong>' + timeText + '</strong>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const endpointsHtml = endpointsData.map(ep => {
                 let dotClass = ep.status;
                 let statusText = ep.status;
                 let timeText = '';
@@ -425,6 +492,8 @@
                     </div>
                 `;
             }).join('');
+
+            container.innerHTML = llmHtml + endpointsHtml;
         }
 
         function formatTime(seconds) {
@@ -545,15 +614,28 @@
                     const job = await res.json();
 
                     if (job.status === 'running') {
-                        document.getElementById('status-text').textContent =
-                            `Run ${job.current_run}/${job.count}: ${job.current_prompt?.substring(0, 50)}...`;
-                        renderEndpoints(job.endpoint_status);
+                        const llmState = job.llm_status?.state;
+                        if (llmState === 'generating') {
+                            document.getElementById('status-text').textContent =
+                                `Run ${job.current_run}/${job.count}: Generating prompt...`;
+                        } else {
+                            document.getElementById('status-text').textContent =
+                                `Run ${job.current_run}/${job.count}: Generating images...`;
+                        }
+
+                        if (job.current_prompt) {
+                            document.getElementById('current-prompt-box').style.display = 'block';
+                            document.getElementById('current-prompt-text').textContent = job.current_prompt;
+                        }
+
+                        renderEndpoints(job.endpoint_status, null, job.llm_status);
                     }
 
                     if (job.status === 'complete') {
                         clearInterval(pollInterval);
                         displayResults(job.results);
                         resetUI();
+                        document.getElementById('current-prompt-box').style.display = 'none';
                         renderEndpoints();
                     }
                 } catch (e) {
