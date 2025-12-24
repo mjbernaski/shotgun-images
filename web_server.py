@@ -4,6 +4,7 @@ import time
 import uuid
 import base64
 import threading
+import queue
 import requests
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
@@ -16,14 +17,18 @@ endpoint_status = {ep["name"]: {"status": "unknown", "last_check": None} for ep 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
 jobs = {}
+job_queue = queue.Queue()
+current_job_id = None
 
 def load_config():
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     with open(config_path, "r") as f:
         return json.load(f)
 
-def run_generation(job_id, prompt, use_random, steering_concept, count, image_base64=None):
+def run_generation(job_id, prompt, use_random, steering_concept, count, image_base64=None, prompt_mode="same", prompt2=None):
     """Background thread for running generation."""
+    global current_job_id
+    current_job_id = job_id
     jobs[job_id]["status"] = "running"
     jobs[job_id]["results"] = []
     jobs[job_id]["endpoint_status"] = {ep["name"]: {"state": "pending", "start_time": None, "elapsed": None} for ep in ENDPOINTS}
@@ -31,24 +36,48 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
     jobs[job_id]["started_at"] = time.time()
 
     for i in range(count):
-        if use_random:
-            jobs[job_id]["llm_status"] = {"state": "generating", "start_time": time.time(), "elapsed": None, "model": None, "source": None}
-            llm_result = prompt_gen.generate_prompt(steering_concept=steering_concept, image_base64=image_base64, return_details=True)
-            current_prompt = llm_result["prompt"]
-            jobs[job_id]["llm_status"] = {
-                "state": "done" if llm_result["source"] == "llm" else "fallback",
-                "start_time": jobs[job_id]["llm_status"]["start_time"],
-                "elapsed": llm_result["elapsed"],
-                "model": llm_result["model"],
-                "source": llm_result["source"],
-                "mode": llm_result["mode"],
-                "error": llm_result.get("error")
-            }
+        endpoint_prompts = {}
+
+        if prompt_mode == "different":
+            if use_random:
+                jobs[job_id]["llm_status"] = {"state": "generating", "start_time": time.time(), "elapsed": None, "model": None, "source": None}
+                for ep in ENDPOINTS:
+                    llm_result = prompt_gen.generate_prompt(steering_concept=steering_concept, image_base64=image_base64, return_details=True)
+                    endpoint_prompts[ep["name"]] = llm_result["prompt"]
+                jobs[job_id]["llm_status"] = {
+                    "state": "done" if llm_result["source"] == "llm" else "fallback",
+                    "start_time": jobs[job_id]["llm_status"]["start_time"],
+                    "elapsed": llm_result["elapsed"],
+                    "model": llm_result["model"],
+                    "source": llm_result["source"],
+                    "mode": llm_result["mode"],
+                    "error": llm_result.get("error")
+                }
+            else:
+                endpoint_prompts[ENDPOINTS[0]["name"]] = prompt
+                endpoint_prompts[ENDPOINTS[1]["name"]] = prompt2 or prompt
         else:
-            current_prompt = prompt
+            if use_random:
+                jobs[job_id]["llm_status"] = {"state": "generating", "start_time": time.time(), "elapsed": None, "model": None, "source": None}
+                llm_result = prompt_gen.generate_prompt(steering_concept=steering_concept, image_base64=image_base64, return_details=True)
+                current_prompt = llm_result["prompt"]
+                jobs[job_id]["llm_status"] = {
+                    "state": "done" if llm_result["source"] == "llm" else "fallback",
+                    "start_time": jobs[job_id]["llm_status"]["start_time"],
+                    "elapsed": llm_result["elapsed"],
+                    "model": llm_result["model"],
+                    "source": llm_result["source"],
+                    "mode": llm_result["mode"],
+                    "error": llm_result.get("error")
+                }
+            else:
+                current_prompt = prompt
+            for ep in ENDPOINTS:
+                endpoint_prompts[ep["name"]] = current_prompt
 
         jobs[job_id]["current_run"] = i + 1
-        jobs[job_id]["current_prompt"] = current_prompt
+        jobs[job_id]["current_prompt"] = endpoint_prompts.get(ENDPOINTS[0]["name"], "")
+        jobs[job_id]["endpoint_prompts"] = endpoint_prompts
         start_time = time.time()
         for ep in ENDPOINTS:
             jobs[job_id]["endpoint_status"][ep["name"]] = {"state": "generating", "start_time": start_time, "elapsed": None}
@@ -56,7 +85,7 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_endpoint = {
-                executor.submit(generate_and_download, ep, current_prompt, image_base64): ep
+                executor.submit(generate_and_download, ep, endpoint_prompts[ep["name"]], image_base64): ep
                 for ep in ENDPOINTS
             }
 
@@ -64,8 +93,9 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
             for future in concurrent.futures.as_completed(future_to_endpoint):
                 ep = future_to_endpoint[future]
                 res = future.result()
+                res["prompt_used"] = endpoint_prompts[ep["name"]]
                 run_results.append(res)
-                log_result(res, current_prompt)
+                log_result(res, endpoint_prompts[ep["name"]])
                 elapsed = time.time() - start_time
                 jobs[job_id]["endpoint_status"][ep["name"]] = {
                     "state": "done" if res.get("success") else "error",
@@ -74,12 +104,36 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
                 }
 
         jobs[job_id]["results"].append({
-            "prompt": current_prompt,
+            "prompt": endpoint_prompts.get(ENDPOINTS[0]["name"], ""),
+            "endpoint_prompts": endpoint_prompts,
             "images": run_results
         })
 
     jobs[job_id]["status"] = "complete"
     jobs[job_id]["completed_at"] = datetime.now().isoformat()
+    current_job_id = None
+
+
+def queue_worker():
+    """Background worker that processes jobs from the queue sequentially."""
+    while True:
+        job_data = job_queue.get()
+        if job_data is None:
+            break
+        job_id = job_data.get("job_id")
+        if job_id and job_id in jobs and jobs[job_id]["status"] == "cancelled":
+            job_queue.task_done()
+            continue
+        try:
+            run_generation(**job_data)
+        except Exception as e:
+            if job_id and job_id in jobs:
+                jobs[job_id]["status"] = "error"
+                jobs[job_id]["error"] = str(e)
+        job_queue.task_done()
+
+
+worker_thread = None
 
 @app.route("/")
 def index():
@@ -93,8 +147,10 @@ def api_generate():
 
     if request.content_type and request.content_type.startswith("multipart/form-data"):
         prompt = request.form.get("prompt", "").strip()
+        prompt2 = request.form.get("prompt2", "").strip()
         use_random = request.form.get("random", "").lower() in ("true", "1", "yes")
         count = int(request.form.get("count", 1))
+        prompt_mode = request.form.get("prompt_mode", "same")
         if "image" in request.files:
             image_file = request.files["image"]
             if image_file.filename:
@@ -104,34 +160,48 @@ def api_generate():
     else:
         data = request.json or {}
         prompt = data.get("prompt", "").strip()
+        prompt2 = data.get("prompt2", "").strip()
         use_random = data.get("random", False)
         count = int(data.get("count", 1))
+        prompt_mode = data.get("prompt_mode", "same")
         image_base64 = data.get("image")
 
     if not use_random and not prompt:
         return jsonify({"error": "Prompt is required when not using random mode"}), 400
 
+    if prompt_mode == "different" and not use_random and not prompt2:
+        prompt2 = prompt
+
     job_id = str(uuid.uuid4())[:8]
+    queue_position = job_queue.qsize() + (1 if current_job_id else 0)
     jobs[job_id] = {
         "id": job_id,
         "status": "queued",
         "prompt": prompt,
+        "prompt2": prompt2,
+        "prompt_mode": prompt_mode,
         "random": use_random,
         "count": count,
         "has_image": image_base64 is not None,
         "current_run": 0,
         "current_prompt": "",
+        "queue_position": queue_position,
         "results": [],
         "created_at": datetime.now().isoformat()
     }
 
-    thread = threading.Thread(
-        target=run_generation,
-        args=(job_id, prompt, use_random, prompt if use_random else None, count, image_base64)
-    )
-    thread.start()
+    job_queue.put({
+        "job_id": job_id,
+        "prompt": prompt,
+        "use_random": use_random,
+        "steering_concept": prompt if use_random else None,
+        "count": count,
+        "image_base64": image_base64,
+        "prompt_mode": prompt_mode,
+        "prompt2": prompt2
+    })
 
-    return jsonify({"job_id": job_id, "status": "queued"})
+    return jsonify({"job_id": job_id, "status": "queued", "queue_position": queue_position})
 
 @app.route("/api/status/<job_id>")
 def api_status(job_id):
@@ -142,6 +212,44 @@ def api_status(job_id):
 @app.route("/api/jobs")
 def api_jobs():
     return jsonify(list(jobs.values()))
+
+@app.route("/api/queue")
+def api_queue():
+    """Return queue state with pending, running, and completed jobs."""
+    pending = []
+    running = []
+    completed = []
+
+    sorted_jobs = sorted(jobs.values(), key=lambda x: x.get("created_at", ""), reverse=True)
+
+    for job in sorted_jobs:
+        if job["status"] == "queued":
+            pending.append(job)
+        elif job["status"] == "running":
+            running.append(job)
+        elif job["status"] in ("complete", "error"):
+            completed.append(job)
+
+    return jsonify({
+        "pending": pending,
+        "running": running,
+        "completed": completed[:20],
+        "current_job_id": current_job_id,
+        "queue_size": job_queue.qsize()
+    })
+
+@app.route("/api/queue/<job_id>", methods=["DELETE"])
+def api_cancel_job(job_id):
+    """Cancel a pending job."""
+    if job_id not in jobs:
+        return jsonify({"error": "Job not found"}), 404
+
+    job = jobs[job_id]
+    if job["status"] != "queued":
+        return jsonify({"error": "Can only cancel queued jobs"}), 400
+
+    job["status"] = "cancelled"
+    return jsonify({"success": True, "job_id": job_id})
 
 @app.route("/images/<path:filename>")
 def serve_image(filename):
@@ -195,6 +303,9 @@ if __name__ == "__main__":
     config = load_config()
     host = config.get("web_host", "0.0.0.0")
     port = config.get("web_port", 5000)
+
+    worker_thread = threading.Thread(target=queue_worker, daemon=True)
+    worker_thread.start()
 
     print(f"Starting Dual Image Generator Web UI")
     print(f"Local: http://127.0.0.1:{port}")

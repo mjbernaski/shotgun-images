@@ -11,8 +11,120 @@
             background: #1a1a2e;
             color: #eee;
             min-height: 100vh;
-            padding: 16px;
+            display: flex;
         }
+
+        .sidebar {
+            width: 280px;
+            background: #12122a;
+            border-right: 1px solid #333;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sidebar-header h2 {
+            color: #00d4ff;
+            font-size: 1.1rem;
+        }
+        .queue-badge {
+            background: #00d4ff;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .queue-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .queue-item {
+            background: #1e2a4a;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .queue-item:hover { background: #253255; }
+        .queue-item.active { border: 1px solid #00d4ff; }
+        .queue-item.running { border-left: 3px solid #ffd700; }
+        .queue-item.complete { border-left: 3px solid #4caf50; }
+        .queue-item.error { border-left: 3px solid #f44336; }
+        .queue-item.queued { border-left: 3px solid #888; }
+        .queue-item.cancelled { border-left: 3px solid #666; opacity: 0.5; }
+        .queue-item-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .queue-item-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .queue-item-status.running { background: #ffd700; animation: pulse 1s ease-in-out infinite; }
+        .queue-item-status.complete { background: #4caf50; }
+        .queue-item-status.error { background: #f44336; }
+        .queue-item-status.queued { background: #888; }
+        .queue-item-status.cancelled { background: #666; }
+        .queue-item-id {
+            font-size: 0.75rem;
+            color: #888;
+        }
+        .queue-item-prompt {
+            font-size: 0.85rem;
+            color: #ccc;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .queue-item-meta {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 4px;
+        }
+        .queue-item-cancel {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 2px 6px;
+        }
+        .queue-item-cancel:hover { color: #f44336; }
+        .queue-section-label {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+            padding: 8px 4px 4px;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: 16px;
+            min-height: 100vh;
+        }
+
         h1 {
             text-align: center;
             color: #00d4ff;
@@ -331,63 +443,142 @@
             font-weight: 600;
             margin-bottom: 4px;
         }
+
+        .prompt-mode-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .prompt-mode-btn {
+            flex: 1;
+            padding: 10px;
+            background: #0f0f23;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .prompt-mode-btn:hover { border-color: #00d4ff; }
+        .prompt-mode-btn.active {
+            background: #1e3a5f;
+            border-color: #00d4ff;
+            color: #fff;
+        }
+        .dual-prompt-container {
+            display: none;
+            gap: 12px;
+        }
+        .dual-prompt-container.visible {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+        .dual-prompt-container .form-group {
+            margin-bottom: 0;
+        }
+        .dual-prompt-note {
+            display: none;
+            background: #1e3a5f;
+            border: 1px solid #00d4ff33;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 16px;
+        }
+        .dual-prompt-note.visible { display: block; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Dual Image Generator</h1>
-
-        <div class="endpoints-bar" id="endpoints-bar"></div>
-
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('generate')">Generate</button>
-            <button class="tab" onclick="showTab('gallery')">Gallery</button>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>Queue</h2>
+            <span class="queue-badge" id="queue-badge">0</span>
         </div>
+        <div class="queue-list" id="queue-list"></div>
+    </div>
 
-        <div id="generate-tab">
-            <div class="form-section">
-                <div class="form-group">
-                    <label for="prompt">Prompt (or steering concept if random)</label>
-                    <textarea id="prompt" placeholder="A futuristic city at sunset..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Input Image (optional, for img2img)</label>
-                    <div class="image-upload" id="image-upload" onclick="document.getElementById('image-input').click()">
-                        <input type="file" id="image-input" accept="image/*" onchange="handleImageSelect(event)">
-                        <div id="upload-content">
-                            <div class="image-upload-text">Click or drag an image here</div>
+    <div class="main-content">
+        <div class="container">
+            <h1>Dual Image Generator</h1>
+
+            <div class="endpoints-bar" id="endpoints-bar"></div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('generate')">Generate</button>
+                <button class="tab" onclick="showTab('gallery')">Gallery</button>
+            </div>
+
+            <div id="generate-tab">
+                <div class="form-section">
+                    <div class="form-group">
+                        <label>Prompt Mode</label>
+                        <div class="prompt-mode-selector">
+                            <button type="button" class="prompt-mode-btn active" data-mode="same" onclick="setPromptMode('same')">Same for both</button>
+                            <button type="button" class="prompt-mode-btn" data-mode="different" onclick="setPromptMode('different')">Different prompts</button>
                         </div>
                     </div>
-                </div>
-                <div class="form-group options">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="random">
-                        <label for="random" style="margin:0">Random / LLM prompt</label>
+
+                    <div class="form-group" id="single-prompt-group">
+                        <label for="prompt">Prompt (or steering concept if random)</label>
+                        <textarea id="prompt" placeholder="A futuristic city at sunset..."></textarea>
                     </div>
-                    <div class="checkbox-group">
-                        <label for="count" style="margin:0">Count:</label>
-                        <input type="number" id="count" value="1" min="1" max="10">
+
+                    <div class="dual-prompt-container" id="dual-prompt-container">
+                        <div class="form-group">
+                            <label for="prompt1">Endpoint 1 (5.40)</label>
+                            <textarea id="prompt1" placeholder="Prompt for endpoint 1..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="prompt2">Endpoint 2 (5.46)</label>
+                            <textarea id="prompt2" placeholder="Prompt for endpoint 2..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="dual-prompt-note" id="dual-prompt-note">
+                        Two separate prompts will be generated by the LLM for each endpoint.
+                    </div>
+
+                    <div class="form-group">
+                        <label>Input Image (optional, for img2img)</label>
+                        <div class="image-upload" id="image-upload" onclick="document.getElementById('image-input').click()">
+                            <input type="file" id="image-input" accept="image/*" onchange="handleImageSelect(event)">
+                            <div id="upload-content">
+                                <div class="image-upload-text">Click or drag an image here</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group options">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="random" onchange="updatePromptModeUI()">
+                            <label for="random" style="margin:0">Random / LLM prompt</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <label for="count" style="margin:0">Count:</label>
+                            <input type="number" id="count" value="1" min="1" max="10">
+                        </div>
+                    </div>
+                    <button class="btn-primary" id="generate-btn" onclick="generate()">Add to Queue</button>
+                </div>
+
+                <div class="status-bar" id="status-bar">
+                    <div>
+                        <span class="spinner"></span>
+                        <span class="status-text" id="status-text">Generating...</span>
+                    </div>
+                    <div class="current-prompt-box" id="current-prompt-box" style="display:none">
+                        <div class="prompt-label">Generated Prompt:</div>
+                        <div id="current-prompt-text"></div>
                     </div>
                 </div>
-                <button class="btn-primary" id="generate-btn" onclick="generate()">Generate</button>
+
+                <div class="results-section" id="results"></div>
             </div>
 
-            <div class="status-bar" id="status-bar">
-                <div>
-                    <span class="spinner"></span>
-                    <span class="status-text" id="status-text">Generating...</span>
-                </div>
-                <div class="current-prompt-box" id="current-prompt-box" style="display:none">
-                    <div class="prompt-label">Generated Prompt:</div>
-                    <div id="current-prompt-text"></div>
-                </div>
+            <div id="gallery-tab" style="display:none">
+                <div class="gallery-grid" id="gallery"></div>
             </div>
-
-            <div class="results-section" id="results"></div>
-        </div>
-
-        <div id="gallery-tab" style="display:none">
-            <div class="gallery-grid" id="gallery"></div>
         </div>
     </div>
 
@@ -398,9 +589,13 @@
 
     <script>
         let currentJobId = null;
+        let selectedJobId = null;
         let pollInterval = null;
+        let queuePollInterval = null;
         let selectedImageFile = null;
         let endpointsData = [];
+        let promptMode = 'same';
+        let queueData = { pending: [], running: [], completed: [] };
 
         function playCompletionSound() {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -414,6 +609,140 @@
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
             osc.start(ctx.currentTime);
             osc.stop(ctx.currentTime + 0.3);
+        }
+
+        function setPromptMode(mode) {
+            promptMode = mode;
+            document.querySelectorAll('.prompt-mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            updatePromptModeUI();
+        }
+
+        function updatePromptModeUI() {
+            const isRandom = document.getElementById('random').checked;
+            const singleGroup = document.getElementById('single-prompt-group');
+            const dualContainer = document.getElementById('dual-prompt-container');
+            const dualNote = document.getElementById('dual-prompt-note');
+
+            if (promptMode === 'different') {
+                if (isRandom) {
+                    singleGroup.style.display = 'block';
+                    dualContainer.classList.remove('visible');
+                    dualNote.classList.add('visible');
+                } else {
+                    singleGroup.style.display = 'none';
+                    dualContainer.classList.add('visible');
+                    dualNote.classList.remove('visible');
+                }
+            } else {
+                singleGroup.style.display = 'block';
+                dualContainer.classList.remove('visible');
+                dualNote.classList.remove('visible');
+            }
+        }
+
+        async function loadQueue() {
+            try {
+                const res = await fetch('/api/queue');
+                queueData = await res.json();
+                renderQueue();
+
+                if (queueData.running.length > 0 && !pollInterval) {
+                    const runningJob = queueData.running[0];
+                    currentJobId = runningJob.id;
+                    if (!selectedJobId) selectedJobId = runningJob.id;
+                    document.getElementById('status-bar').classList.add('active');
+                    pollStatus();
+                }
+            } catch (e) {
+                console.error('Failed to load queue:', e);
+            }
+        }
+
+        function renderQueue() {
+            const container = document.getElementById('queue-list');
+            const badge = document.getElementById('queue-badge');
+            const totalActive = queueData.pending.length + queueData.running.length;
+            badge.textContent = totalActive;
+
+            let html = '';
+
+            if (queueData.running.length > 0) {
+                html += '<div class="queue-section-label">Running</div>';
+                queueData.running.forEach(job => {
+                    html += renderQueueItem(job);
+                });
+            }
+
+            if (queueData.pending.length > 0) {
+                html += '<div class="queue-section-label">Pending</div>';
+                queueData.pending.forEach(job => {
+                    html += renderQueueItem(job);
+                });
+            }
+
+            if (queueData.completed.length > 0) {
+                html += '<div class="queue-section-label">Completed</div>';
+                queueData.completed.forEach(job => {
+                    html += renderQueueItem(job);
+                });
+            }
+
+            if (!html) {
+                html = '<div style="padding: 20px; text-align: center; color: #666;">Queue is empty</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        function renderQueueItem(job) {
+            const isActive = job.id === selectedJobId;
+            const promptPreview = job.prompt || (job.random ? '(Random)' : '');
+            const truncatedPrompt = promptPreview.length > 40 ? promptPreview.slice(0, 40) + '...' : promptPreview;
+            const showCancel = job.status === 'queued';
+            const meta = job.prompt_mode === 'different' ? 'Different prompts' : '';
+
+            return `
+                <div class="queue-item ${job.status} ${isActive ? 'active' : ''}" onclick="selectJob('${job.id}')">
+                    ${showCancel ? `<button class="queue-item-cancel" onclick="cancelJob(event, '${job.id}')">&times;</button>` : ''}
+                    <div class="queue-item-header">
+                        <div class="queue-item-status ${job.status}"></div>
+                        <span class="queue-item-id">#${job.id}</span>
+                        ${job.status === 'running' && job.current_run ? `<span class="queue-item-id">${job.current_run}/${job.count}</span>` : ''}
+                    </div>
+                    <div class="queue-item-prompt">${escapeHtml(truncatedPrompt)}</div>
+                    ${meta ? `<div class="queue-item-meta">${meta}</div>` : ''}
+                </div>
+            `;
+        }
+
+        async function selectJob(jobId) {
+            selectedJobId = jobId;
+            renderQueue();
+
+            const res = await fetch(`/api/status/${jobId}`);
+            const job = await res.json();
+
+            if (job.status === 'running') {
+                currentJobId = jobId;
+                document.getElementById('status-bar').classList.add('active');
+                if (!pollInterval) pollStatus();
+            }
+
+            if (job.results && job.results.length > 0) {
+                displayResults(job.results);
+            }
+        }
+
+        async function cancelJob(event, jobId) {
+            event.stopPropagation();
+            try {
+                await fetch(`/api/queue/${jobId}`, { method: 'DELETE' });
+                loadQueue();
+            } catch (e) {
+                console.error('Failed to cancel job:', e);
+            }
         }
 
         async function loadEndpoints() {
@@ -520,7 +849,9 @@
         }
 
         loadEndpoints();
+        loadQueue();
         setInterval(loadEndpoints, 30000);
+        setInterval(loadQueue, 2000);
 
         const uploadArea = document.getElementById('image-upload');
         uploadArea.addEventListener('dragover', (e) => {
@@ -575,9 +906,21 @@
         }
 
         async function generate() {
-            const prompt = document.getElementById('prompt').value;
             const random = document.getElementById('random').checked;
             const count = parseInt(document.getElementById('count').value) || 1;
+
+            let prompt, prompt2;
+            if (promptMode === 'different' && !random) {
+                prompt = document.getElementById('prompt1').value;
+                prompt2 = document.getElementById('prompt2').value;
+                if (!prompt.trim() && !prompt2.trim()) {
+                    alert('Please enter at least one prompt');
+                    return;
+                }
+            } else {
+                prompt = document.getElementById('prompt').value;
+                prompt2 = '';
+            }
 
             if (!random && !prompt.trim()) {
                 alert('Please enter a prompt or enable random mode');
@@ -585,16 +928,14 @@
             }
 
             document.getElementById('generate-btn').disabled = true;
-            document.getElementById('status-bar').classList.add('active');
-            document.getElementById('status-text').textContent = 'Starting...';
 
             try {
                 let res;
-                console.log('selectedImageFile:', selectedImageFile);
                 if (selectedImageFile) {
-                    console.log('Sending with image:', selectedImageFile.name, selectedImageFile.size);
                     const formData = new FormData();
                     formData.append('prompt', prompt);
+                    formData.append('prompt2', prompt2);
+                    formData.append('prompt_mode', promptMode);
                     formData.append('random', random);
                     formData.append('count', count);
                     formData.append('image', selectedImageFile);
@@ -603,29 +944,39 @@
                         body: formData
                     });
                 } else {
-                    console.log('Sending without image');
                     res = await fetch('/api/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, random, count })
+                        body: JSON.stringify({ prompt, prompt2, prompt_mode: promptMode, random, count })
                     });
                 }
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
-                currentJobId = data.job_id;
-                pollStatus();
+                document.getElementById('generate-btn').disabled = false;
+                loadQueue();
+
+                if (data.queue_position === 0) {
+                    currentJobId = data.job_id;
+                    selectedJobId = data.job_id;
+                    document.getElementById('status-bar').classList.add('active');
+                    document.getElementById('status-text').textContent = 'Starting...';
+                    pollStatus();
+                }
             } catch (e) {
                 alert('Error: ' + e.message);
-                resetUI();
+                document.getElementById('generate-btn').disabled = false;
             }
         }
 
         function pollStatus() {
+            if (pollInterval) clearInterval(pollInterval);
             pollInterval = setInterval(async () => {
                 try {
                     const res = await fetch(`/api/status/${currentJobId}`);
                     const job = await res.json();
+
+                    loadQueue();
 
                     if (job.status === 'running') {
                         const llmState = job.llm_status?.state;
@@ -647,11 +998,14 @@
 
                     if (job.status === 'complete') {
                         clearInterval(pollInterval);
+                        pollInterval = null;
                         displayResults(job.results);
                         resetUI();
                         document.getElementById('current-prompt-box').style.display = 'none';
                         renderEndpoints();
                         playCompletionSound();
+                        loadQueue();
+                        startNextJobPolling();
                     }
                 } catch (e) {
                     console.error(e);
@@ -659,22 +1013,43 @@
             }, 1000);
         }
 
+        function startNextJobPolling() {
+            setTimeout(async () => {
+                await loadQueue();
+                if (queueData.running.length > 0) {
+                    const nextJob = queueData.running[0];
+                    currentJobId = nextJob.id;
+                    selectedJobId = nextJob.id;
+                    document.getElementById('status-bar').classList.add('active');
+                    document.getElementById('status-text').textContent = 'Starting...';
+                    pollStatus();
+                }
+            }, 500);
+        }
+
         function displayResults(results) {
             const container = document.getElementById('results');
             let html = '';
 
             for (const run of results) {
-                html += `<div class="result-group">
-                    <div class="result-prompt"><strong>Prompt:</strong> ${escapeHtml(run.prompt)}</div>
-                    <div class="image-grid">`;
+                const hasDifferentPrompts = run.endpoint_prompts &&
+                    Object.values(run.endpoint_prompts).some((p, i, arr) => i > 0 && p !== arr[0]);
+
+                html += `<div class="result-group">`;
+                if (!hasDifferentPrompts) {
+                    html += `<div class="result-prompt"><strong>Prompt:</strong> ${escapeHtml(run.prompt)}</div>`;
+                }
+                html += `<div class="image-grid">`;
 
                 for (const img of run.images) {
                     if (img.success) {
                         const filename = img.local_path.split('/').pop();
+                        const promptUsed = img.prompt_used || run.prompt;
                         html += `<div class="image-card">
                             <img src="/images/${filename}" onclick="openModal(this.src)" loading="lazy">
                             <div class="image-meta">
                                 <span class="endpoint">${img.endpoint.name}</span><br>
+                                ${hasDifferentPrompts ? `<div style="color:#ccc;margin:4px 0;font-size:0.75rem">${escapeHtml(promptUsed.slice(0, 80))}${promptUsed.length > 80 ? '...' : ''}</div>` : ''}
                                 Seed: ${img.stats?.seed || 'N/A'} | ${img.duration?.toFixed(1)}s
                             </div>
                         </div>`;
@@ -687,7 +1062,7 @@
                 html += '</div></div>';
             }
 
-            container.innerHTML = html + container.innerHTML;
+            container.innerHTML = html;
         }
 
         function resetUI() {
