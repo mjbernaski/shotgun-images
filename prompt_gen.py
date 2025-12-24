@@ -1,13 +1,9 @@
-import random
 import sys
 import os
 import json
 import time
 
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
+from openai import OpenAI
 
 def load_config():
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
@@ -19,30 +15,11 @@ CONFIG = load_config()
 LM_STUDIO_URL = CONFIG.get("lm_studio_url", "http://localhost:1234/v1")
 MODEL_ID = CONFIG.get("lm_studio_model", "gpt-oss-20b")
 
-# --- Fallback Lists (Backup) ---
-SUBJECTS = ["a majestic lion", "a futuristic cityscape", "a serene lake", "an astronaut", "a steampunk robot"]
-STYLES = ["oil painting", "digital art", "photorealistic", "watercolor", "anime style"]
-ARTISTS = ["Greg Rutkowski", "Alphonse Mucha", "H.R. Giger", "Vincent van Gogh", "Syd Mead"]
-LIGHTING = ["cinematic lighting", "golden hour", "neon lights", "soft diffuse light"]
-DETAILS = ["highly detailed", "4k resolution", "intricate textures", "sharp focus", "masterpiece"]
-
-def generate_fallback_prompt(steering_concept=None):
-    if steering_concept:
-        subject = steering_concept
-    else:
-        subject = random.choice(SUBJECTS)
-    
-    style = random.choice(STYLES)
-    artist = random.choice(ARTISTS)
-    light = random.choice(LIGHTING)
-    details = ", ".join(random.sample(DETAILS, 2))
-    return f"{subject}, {style} by {artist}, {light}, {details}"
-
 def generate_prompt(steering_concept=None, image_base64=None, return_details=False):
     """
     Generates a prompt using the local LLM.
     If image_base64 is provided, uses vision model to describe/transform the image.
-    Falls back to list-based generation on error.
+    Raises an exception if LM Studio connection fails.
 
     If return_details=True, returns a dict with prompt, timing, and status info.
     """
@@ -56,14 +33,6 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
         "source": "llm",
         "error": None
     }
-
-    if not OpenAI:
-        print("[Warning] 'openai' module not found. Using fallback generator.")
-        prompt = generate_fallback_prompt(steering_concept)
-        result["prompt"] = prompt
-        result["source"] = "fallback"
-        result["elapsed"] = round(time.time() - start_time, 2)
-        return result if return_details else prompt
 
     client = OpenAI(base_url=LM_STUDIO_URL, api_key="lm-studio", timeout=300.0)
 
@@ -132,8 +101,7 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
         prompt = prompt.strip('"').strip("'")
 
         if not prompt:
-            prompt = generate_fallback_prompt(steering_concept)
-            result["source"] = "fallback"
+            raise RuntimeError("LLM returned empty prompt")
 
         result["prompt"] = prompt
         result["elapsed"] = round(time.time() - start_time, 2)
@@ -142,13 +110,7 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
 
     except Exception as e:
         print(f"[Error] LLM generation failed: {e}")
-        print("[Info] Switching to fallback generator.")
-        prompt = generate_fallback_prompt(steering_concept)
-        result["prompt"] = prompt
-        result["source"] = "fallback"
-        result["error"] = str(e)
-        result["elapsed"] = round(time.time() - start_time, 2)
-        return result if return_details else prompt
+        raise
 
 if __name__ == "__main__":
     print(generate_prompt())
