@@ -698,10 +698,26 @@
 
         function renderQueueItem(job) {
             const isActive = job.id === selectedJobId;
-            const promptPreview = job.prompt || (job.random ? '(Random)' : '');
-            const truncatedPrompt = promptPreview.length > 40 ? promptPreview.slice(0, 40) + '...' : promptPreview;
             const showCancel = job.status === 'queued';
-            const meta = job.prompt_mode === 'different' ? 'Different prompts' : '';
+            const isDifferent = job.prompt_mode === 'different';
+
+            let promptHtml = '';
+            if (isDifferent && !job.random) {
+                const p1 = job.prompt || '';
+                const p2 = job.prompt2 || '';
+                const t1 = p1.length > 30 ? p1.slice(0, 30) + '...' : p1;
+                const t2 = p2.length > 30 ? p2.slice(0, 30) + '...' : p2;
+                promptHtml = `
+                    <div class="queue-item-prompt" style="font-size:0.75rem"><strong>1:</strong> ${escapeHtml(t1)}</div>
+                    <div class="queue-item-prompt" style="font-size:0.75rem"><strong>2:</strong> ${escapeHtml(t2)}</div>
+                `;
+            } else {
+                const promptPreview = job.prompt || (job.random ? '(Random)' : '');
+                const truncatedPrompt = promptPreview.length > 40 ? promptPreview.slice(0, 40) + '...' : promptPreview;
+                promptHtml = `<div class="queue-item-prompt">${escapeHtml(truncatedPrompt)}</div>`;
+            }
+
+            const meta = isDifferent && job.random ? 'Two random prompts' : '';
 
             return `
                 <div class="queue-item ${job.status} ${isActive ? 'active' : ''}" onclick="selectJob('${job.id}')">
@@ -711,7 +727,7 @@
                         <span class="queue-item-id">#${job.id}</span>
                         ${job.status === 'running' && job.current_run ? `<span class="queue-item-id">${job.current_run}/${job.count}</span>` : ''}
                     </div>
-                    <div class="queue-item-prompt">${escapeHtml(truncatedPrompt)}</div>
+                    ${promptHtml}
                     ${meta ? `<div class="queue-item-meta">${meta}</div>` : ''}
                 </div>
             `;
