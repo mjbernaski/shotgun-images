@@ -70,15 +70,15 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
     if image_base64:
         if steering_concept:
             user_msg = (
-                f"Look at this image and create a detailed image generation prompt to transform it "
+                f"Look at this image and create a LONG, detailed image generation prompt (at least 80-120 words) to transform it "
                 f"based on this concept: '{steering_concept}'. "
-                "Describe the key elements you see and how to enhance/transform them. "
+                "Describe the key elements you see, environment, mood, lighting, colors, textures, artistic style, and quality tags. "
                 "Return ONLY the prompt string."
             )
         else:
             user_msg = (
-                "Look at this image and create a detailed image generation prompt that describes it "
-                "with artistic enhancements. Add style, lighting, and creative details. "
+                "Look at this image and create a LONG, detailed image generation prompt (at least 80-120 words) that describes it "
+                "with artistic enhancements. Include subject details, environment, mood, lighting, colors, textures, artistic style, and quality tags. "
                 "Return ONLY the prompt string."
             )
 
@@ -98,13 +98,13 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
     else:
         if steering_concept:
             user_msg = (
-                f"Create a detailed, high-quality image prompt based on the concept: '{steering_concept}'. "
-                "Add artistic style, lighting, and details to make it a masterpiece."
+                f"Create a LONG, detailed image prompt (at least 80-120 words) based on the concept: '{steering_concept}'. "
+                "Include subject details, environment, mood, lighting, colors, textures, artistic style, and quality tags."
             )
         else:
             user_msg = (
-                "Generate a random, highly creative, and visually stunning image prompt. "
-                "Choose a unique subject (fantasy, sci-fi, nature, etc.) and describe it vividly."
+                "Generate a LONG, detailed, creative image prompt (at least 80-120 words). "
+                "Choose a unique subject and describe it with environment, mood, lighting, colors, textures, artistic style, and quality tags."
             )
 
         messages = [
