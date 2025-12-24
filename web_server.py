@@ -111,6 +111,7 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
 
     jobs[job_id]["status"] = "complete"
     jobs[job_id]["completed_at"] = datetime.now().isoformat()
+    jobs[job_id]["total_elapsed"] = round(time.time() - jobs[job_id]["started_at"], 1)
     current_job_id = None
 
 

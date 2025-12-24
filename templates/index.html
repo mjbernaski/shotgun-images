@@ -717,7 +717,11 @@
                 promptHtml = `<div class="queue-item-prompt">${escapeHtml(truncatedPrompt)}</div>`;
             }
 
-            const meta = isDifferent && job.random ? 'Two random prompts' : '';
+            let meta = isDifferent && job.random ? 'Two random prompts' : '';
+            if (job.status === 'complete' && job.total_elapsed) {
+                const elapsed = formatTime(job.total_elapsed);
+                meta = meta ? `${meta} · ${elapsed}` : elapsed;
+            }
 
             return `
                 <div class="queue-item ${job.status} ${isActive ? 'active' : ''}" onclick="selectJob('${job.id}')">
