@@ -1,7 +1,7 @@
 {
     "output_directory": "/Volumes/T9/dual-image-generations",
     "lm_studio_url": "http://localhost:1234/v1",
-    "lm_studio_model": "gpt-oss-20b",
+    "lm_studio_model": "glm-4.6v-flash",
     "web_host": "0.0.0.0",
     "web_port": 5050
 }
