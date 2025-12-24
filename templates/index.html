@@ -402,6 +402,20 @@
         let selectedImageFile = null;
         let endpointsData = [];
 
+        function playCompletionSound() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 880;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.3);
+        }
+
         async function loadEndpoints() {
             try {
                 const res = await fetch('/api/endpoints');
@@ -637,6 +651,7 @@
                         resetUI();
                         document.getElementById('current-prompt-box').style.display = 'none';
                         renderEndpoints();
+                        playCompletionSound();
                     }
                 } catch (e) {
                     console.error(e);
