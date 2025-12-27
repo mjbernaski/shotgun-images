@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import time
+import re
 
 from openai import OpenAI
 
@@ -57,7 +58,7 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
             image_url = image_base64
 
         messages = [
-            {"role": "system", "content": "You are a prompt engineer. Generate long, highly detailed prompts with rich descriptions of subject, environment, lighting, atmosphere, artistic style, and technical quality tags. Your output should be ONLY the final stable diffusion prompt string. No reasoning, no chatter."},
+            {"role": "system", "content": "You are a prompt engineer. Output ONLY the image generation prompt itself - no thinking, no reasoning, no preamble, no explanation. Start directly with the description."},
             {"role": "user", "content": [
                 {"type": "text", "text": user_msg},
                 {"type": "image_url", "image_url": {"url": image_url}}
@@ -77,7 +78,7 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
             )
 
         messages = [
-            {"role": "system", "content": "You are a prompt engineer. Generate long, highly detailed prompts with rich descriptions of subject, environment, lighting, atmosphere, artistic style, and technical quality tags. Your output should be ONLY the final stable diffusion prompt string. No reasoning, no chatter."},
+            {"role": "system", "content": "You are a prompt engineer. Output ONLY the image generation prompt itself - no thinking, no reasoning, no preamble, no explanation. Start directly with the description."},
             {"role": "user", "content": user_msg}
         ]
         print(f"[LLM] Requesting prompt from {MODEL_ID}...")
@@ -87,7 +88,7 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
             model=MODEL_ID,
             messages=messages,
             temperature=0.7,
-            max_tokens=800
+            max_tokens=1500
         )
 
         msg = response.choices[0].message
@@ -99,6 +100,12 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
             prompt = msg.model_extra['reasoning'].strip()
 
         prompt = prompt.strip('"').strip("'")
+
+        prompt = re.sub(r'^(Got it|Okay|Alright|Let me|I\'ll|I need to|Here\'s|Here is)[^.]*\.\s*', '', prompt, flags=re.IGNORECASE)
+        prompt = re.sub(r'^(The user wants|This prompt)[^.]*\.\s*', '', prompt, flags=re.IGNORECASE)
+        prompt = re.sub(r'<think>.*?</think>', '', prompt, flags=re.DOTALL)
+        prompt = re.sub(r'<reasoning>.*?</reasoning>', '', prompt, flags=re.DOTALL)
+        prompt = prompt.strip()
 
         if not prompt:
             raise RuntimeError("LLM returned empty prompt")
