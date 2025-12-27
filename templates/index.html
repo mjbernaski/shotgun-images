@@ -614,7 +614,10 @@
                             <input type="number" id="count" value="1" min="1" max="10">
                         </div>
                     </div>
-                    <button class="btn-primary" id="generate-btn" onclick="generate()">Add to Queue</button>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn-primary" id="generate-btn" onclick="generate()" style="flex: 1;">Add to Queue</button>
+                        <button type="button" onclick="clearForm()" style="width: auto; padding: 14px 24px; background: #333; color: #aaa;">Clear</button>
+                    </div>
                 </div>
 
                 <div class="status-bar" id="status-bar">
@@ -963,13 +966,20 @@
         }
 
         function clearImage(event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             selectedImageFile = null;
             document.getElementById('image-input').value = '';
             document.getElementById('upload-content').innerHTML = `
                 <div class="image-upload-text">Click or drag an image here</div>
             `;
             uploadArea.classList.remove('has-image');
+        }
+
+        function clearForm() {
+            document.getElementById('prompt').value = '';
+            document.getElementById('prompt1').value = '';
+            document.getElementById('prompt2').value = '';
+            clearImage(null);
         }
 
         async function useAsInput(imageUrl, event) {
