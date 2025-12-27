@@ -184,6 +184,14 @@
             color: #fff;
             font-size: 16px;
         }
+        select {
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0f0f23;
+            color: #fff;
+            font-size: 16px;
+        }
 
         button {
             width: 100%;
@@ -560,6 +568,14 @@
                             <label for="random" style="margin:0">Random / LLM prompt</label>
                         </div>
                         <div class="checkbox-group">
+                            <label for="orientation" style="margin:0">Orientation:</label>
+                            <select id="orientation">
+                                <option value="landscape" selected>Landscape</option>
+                                <option value="portrait">Portrait</option>
+                                <option value="square">Square</option>
+                            </select>
+                        </div>
+                        <div class="checkbox-group">
                             <label for="count" style="margin:0">Count:</label>
                             <input type="number" id="count" value="1" min="1" max="10">
                         </div>
@@ -933,6 +949,7 @@
         async function generate() {
             const random = document.getElementById('random').checked;
             const count = parseInt(document.getElementById('count').value) || 1;
+            const orientation = document.getElementById('orientation').value;
 
             let prompt, prompt2;
             if (promptMode === 'different' && !random) {
@@ -963,6 +980,7 @@
                     formData.append('prompt_mode', promptMode);
                     formData.append('random', random);
                     formData.append('count', count);
+                    formData.append('orientation', orientation);
                     formData.append('image', selectedImageFile);
                     res = await fetch('/api/generate', {
                         method: 'POST',
@@ -972,7 +990,7 @@
                     res = await fetch('/api/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, prompt2, prompt_mode: promptMode, random, count })
+                        body: JSON.stringify({ prompt, prompt2, prompt_mode: promptMode, random, count, orientation })
                     });
                 }
                 const data = await res.json();

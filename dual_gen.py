@@ -72,7 +72,7 @@ def log_result(result, prompt):
                 "error": result.get("error", "Unknown error")
             })
 
-def generate_and_download(endpoint, prompt, image_base64=None):
+def generate_and_download(endpoint, prompt, image_base64=None, orientation=None):
     """
     Sends a generation request to the endpoint and downloads the result.
     Optionally accepts a base64-encoded image for image-to-image generation.
@@ -82,6 +82,8 @@ def generate_and_download(endpoint, prompt, image_base64=None):
 
     payload = DEFAULT_CONFIG.copy()
     payload["prompt"] = prompt
+    if orientation:
+        payload["orientation"] = orientation
     if image_base64:
         if not image_base64.startswith("data:"):
             image_base64 = f"data:image/png;base64,{image_base64}"
