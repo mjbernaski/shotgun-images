@@ -105,6 +105,8 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
         prompt = re.sub(r'^(The user wants|This prompt)[^.]*\.\s*', '', prompt, flags=re.IGNORECASE)
         prompt = re.sub(r'<think>.*?</think>', '', prompt, flags=re.DOTALL)
         prompt = re.sub(r'<reasoning>.*?</reasoning>', '', prompt, flags=re.DOTALL)
+        prompt = re.sub(r'<\|begin_of_box\|>', '', prompt)
+        prompt = re.sub(r'<\|end_of_box\|>', '', prompt)
         prompt = prompt.strip()
 
         if not prompt:
