@@ -474,6 +474,25 @@
             font-weight: 600;
             margin-bottom: 4px;
         }
+        .copy-btn {
+            background: none;
+            border: 1px solid #555;
+            color: #888;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            margin-left: 8px;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            border-color: #00d4ff;
+            color: #00d4ff;
+        }
+        .copy-btn.copied {
+            border-color: #4caf50;
+            color: #4caf50;
+        }
 
         .prompt-mode-selector {
             display: flex;
@@ -626,7 +645,7 @@
                         <span class="status-text" id="status-text">Generating...</span>
                     </div>
                     <div class="current-prompt-box" id="current-prompt-box" style="display:none">
-                        <div class="prompt-label">Generated Prompt:</div>
+                        <div class="prompt-label">Generated Prompt: <button class="copy-btn" onclick="copyPrompt(document.getElementById('current-prompt-text').textContent, this)">Copy</button></div>
                         <div id="current-prompt-text"></div>
                     </div>
                 </div>
@@ -1147,7 +1166,8 @@
 
                 html += `<div class="result-group">`;
                 if (!hasDifferentPrompts) {
-                    html += `<div class="result-prompt"><strong>Prompt:</strong> ${escapeHtml(run.prompt)}</div>`;
+                    const promptId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                    html += `<div class="result-prompt"><strong>Prompt:</strong> <button class="copy-btn" onclick="copyPrompt(document.getElementById('${promptId}').textContent, this)">Copy</button><span id="${promptId}">${escapeHtml(run.prompt)}</span></div>`;
                 }
                 html += `<div class="image-grid">`;
 
@@ -1159,7 +1179,7 @@
                             <img src="/images/${filename}" onclick="openModal(this.src)" loading="lazy">
                             <div class="image-meta">
                                 <span class="endpoint">${img.endpoint.name}</span><br>
-                                ${hasDifferentPrompts ? `<div style="color:#ccc;margin:4px 0;font-size:0.75rem">${escapeHtml(promptUsed.slice(0, 80))}${promptUsed.length > 80 ? '...' : ''}</div>` : ''}
+                                ${hasDifferentPrompts ? `<div style="color:#ccc;margin:4px 0;font-size:0.75rem">${escapeHtml(promptUsed.slice(0, 80))}${promptUsed.length > 80 ? '...' : ''} <button class="copy-btn" data-prompt="${escapeHtml(promptUsed)}" onclick="copyPrompt(this.dataset.prompt, this)">Copy</button></div>` : ''}
                                 Seed: ${img.stats?.seed || 'N/A'} | ${img.duration?.toFixed(1)}s
                                 <button class="use-as-input-btn" onclick="useAsInput('/images/${filename}', event)">Use as input</button>
                             </div>
@@ -1212,6 +1232,20 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        async function copyPrompt(text, button) {
+            try {
+                await navigator.clipboard.writeText(text);
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            } catch (e) {
+                console.error('Failed to copy:', e);
+            }
         }
 
         document.addEventListener('keydown', e => {
