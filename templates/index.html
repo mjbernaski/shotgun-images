@@ -468,11 +468,17 @@
             max-height: 100px;
             overflow-y: auto;
             word-break: break-word;
+            position: relative;
         }
         .current-prompt-box .prompt-label {
             color: #ffd700;
             font-weight: 600;
             margin-bottom: 4px;
+        }
+        .current-prompt-box .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
         }
         .copy-btn {
             background: none;
@@ -643,7 +649,8 @@
                         <span class="status-text" id="status-text">Generating...</span>
                     </div>
                     <div class="current-prompt-box" id="current-prompt-box" style="display:none">
-                        <div class="prompt-label">Generated Prompt: <button class="copy-btn" onclick="copyPrompt(document.getElementById('current-prompt-text').textContent, this)" title="Copy to clipboard"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+                        <button class="copy-btn" onclick="copyPrompt(document.getElementById('current-prompt-text').textContent, this)" title="Copy to clipboard"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                        <div class="prompt-label">Generated Prompt:</div>
                         <div id="current-prompt-text"></div>
                     </div>
                 </div>
