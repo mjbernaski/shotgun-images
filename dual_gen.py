@@ -95,7 +95,7 @@ def generate_and_download(endpoint, prompt, image_base64=None, orientation=None)
     
     try:
         start_time = time.time()
-        response = requests.post(api_url, json=payload, timeout=300) # Long timeout for generation
+        response = requests.post(api_url, json=payload, timeout=450) # Long timeout for generation
         response.raise_for_status()
         data = response.json()
         

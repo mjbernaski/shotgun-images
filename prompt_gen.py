@@ -35,7 +35,7 @@ def generate_prompt(steering_concept=None, image_base64=None, return_details=Fal
         "error": None
     }
 
-    client = OpenAI(base_url=LM_STUDIO_URL, api_key="lm-studio", timeout=300.0)
+    client = OpenAI(base_url=LM_STUDIO_URL, api_key="lm-studio", timeout=450.0)
 
     if image_base64:
         if steering_concept:
