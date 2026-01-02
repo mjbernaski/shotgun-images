@@ -9,6 +9,23 @@ import requests
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 
+ALLOWED_IMAGE_TYPES = {'jpeg', 'png', 'webp', 'gif'}
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
+
+def detect_image_type(data):
+    """Detect image type from file header bytes."""
+    if len(data) < 12:
+        return None
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'webp'
+    if data[:8] == b'\x89PNG\r\n\x1a\n':
+        return 'png'
+    if data[:2] == b'\xff\xd8':
+        return 'jpeg'
+    if data[:6] in (b'GIF87a', b'GIF89a'):
+        return 'gif'
+    return None
+
 import prompt_gen
 from dual_gen import generate_and_download, log_result, ENDPOINTS, CONFIG
 
@@ -157,6 +174,14 @@ def api_generate():
             image_file = request.files["image"]
             if image_file.filename:
                 image_data = image_file.read()
+
+                if len(image_data) > MAX_IMAGE_SIZE:
+                    return jsonify({"error": f"Image too large. Maximum size is {MAX_IMAGE_SIZE // (1024*1024)}MB"}), 400
+
+                image_type = detect_image_type(image_data)
+                if image_type not in ALLOWED_IMAGE_TYPES:
+                    return jsonify({"error": f"Invalid image format: {image_type or 'unknown'}. Supported: JPEG, PNG, WebP, GIF"}), 400
+
                 image_base64 = base64.b64encode(image_data).decode("utf-8")
                 print(f"[WebServer] Received image: {image_file.filename} ({len(image_data)} bytes, {len(image_base64)} base64 chars)")
     else:
