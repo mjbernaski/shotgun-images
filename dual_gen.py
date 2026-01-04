@@ -28,7 +28,6 @@ DEFAULT_CONFIG = {
     "orientation": "landscape",
     "size": "1mp",
     "steps": 25,
-    "seed": None,
     "batch": 1
 }
 
@@ -92,17 +91,41 @@ def generate_and_download(endpoint, prompt, image_base64=None, orientation=None,
         payload["seed"] = seed
     if image_base64:
         if not image_base64.startswith("data:"):
-            image_base64 = f"data:image/png;base64,{image_base64}"
+            # Detect image type from base64 data
+            try:
+                import base64 as b64
+                header = b64.b64decode(image_base64[:32])
+                if header[:2] == b'\xff\xd8':
+                    mime = "image/jpeg"
+                elif header[:8] == b'\x89PNG\r\n\x1a\n':
+                    mime = "image/png"
+                elif header[:4] == b'RIFF' and header[8:12] == b'WEBP':
+                    mime = "image/webp"
+                elif header[:6] in (b'GIF87a', b'GIF89a'):
+                    mime = "image/gif"
+                else:
+                    mime = "image/png"  # fallback
+            except:
+                mime = "image/png"
+            image_base64 = f"data:{mime};base64,{image_base64}"
         payload["input_image"] = image_base64
         payload["strength"] = strength
-        print(f"[{endpoint['name']}] Including input_image ({len(image_base64)} chars, strength={strength})")
+        detected_mime = image_base64.split(';')[0].split(':')[1] if image_base64.startswith('data:') else 'unknown'
+        print(f"[{endpoint['name']}] Including input_image ({detected_mime}, {len(image_base64)} chars, strength={strength})")
 
-    print(f"[{endpoint['name']}] Sending request...")
+    print(f"[{endpoint['name']}] Sending request with payload: {json.dumps({k: v for k, v in payload.items() if k != 'input_image'})}")
     
     try:
         start_time = time.time()
         response = requests.post(api_url, json=payload, timeout=450) # Long timeout for generation
-        response.raise_for_status()
+        if response.status_code != 200:
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', response.text[:500])
+            except:
+                error_msg = response.text[:500]
+            print(f"[{endpoint['name']}] API Error {response.status_code}: {error_msg}")
+            return {"success": False, "error": f"{response.status_code}: {error_msg}", "endpoint": endpoint}
         data = response.json()
         
         if not data.get("success"):
