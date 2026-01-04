@@ -643,8 +643,31 @@
                             </select>
                         </div>
                         <div class="checkbox-group">
+                            <label for="size" style="margin:0">Size:</label>
+                            <select id="size">
+                                <option value="1mp" selected>1MP</option>
+                                <option value="2mp">2MP</option>
+                                <option value="4mp">4MP</option>
+                            </select>
+                        </div>
+                        <div class="checkbox-group">
+                            <label for="steps" style="margin:0">Steps:</label>
+                            <input type="number" id="steps" value="25" min="10" max="50">
+                        </div>
+                        <div class="checkbox-group">
                             <label for="count" style="margin:0">Count:</label>
                             <input type="number" id="count" value="1" min="1" max="10">
+                        </div>
+                    </div>
+                    <div class="form-group options">
+                        <div class="checkbox-group">
+                            <label for="seed" style="margin:0">Seed:</label>
+                            <input type="number" id="seed" placeholder="Random" style="width: 100px;">
+                        </div>
+                        <div class="checkbox-group" id="strength-group" style="display: none;">
+                            <label for="strength" style="margin:0">Strength:</label>
+                            <input type="range" id="strength" min="0" max="1" step="0.05" value="0.75" style="width: 100px;">
+                            <span id="strength-value">0.75</span>
                         </div>
                     </div>
                     <div style="display: flex; gap: 12px;">
@@ -1067,8 +1090,13 @@
                     <br><button type="button" class="clear-image" onclick="clearImage(event)">Remove</button>
                 `;
                 uploadArea.classList.add('has-image');
+                document.getElementById('strength-group').style.display = 'flex';
             });
         }
+
+        document.getElementById('strength').addEventListener('input', function() {
+            document.getElementById('strength-value').textContent = this.value;
+        });
 
         function clearImage(event) {
             if (event) event.stopPropagation();
@@ -1078,12 +1106,18 @@
                 <div class="image-upload-text">Click or drag an image here</div>
             `;
             uploadArea.classList.remove('has-image');
+            document.getElementById('strength-group').style.display = 'none';
+            document.getElementById('strength').value = 0.75;
+            document.getElementById('strength-value').textContent = '0.75';
         }
 
         function clearForm() {
             document.getElementById('prompt').value = '';
             document.getElementById('prompt1').value = '';
             document.getElementById('prompt2').value = '';
+            document.getElementById('seed').value = '';
+            document.getElementById('steps').value = 25;
+            document.getElementById('size').value = '1mp';
             clearImage(null);
             document.getElementById('results').innerHTML = '';
         }
@@ -1122,6 +1156,11 @@
             const random = document.getElementById('random').checked;
             const count = parseInt(document.getElementById('count').value) || 1;
             const orientation = document.getElementById('orientation').value;
+            const size = document.getElementById('size').value;
+            const steps = parseInt(document.getElementById('steps').value) || 25;
+            const seedInput = document.getElementById('seed').value;
+            const seed = seedInput ? parseInt(seedInput) : null;
+            const strength = parseFloat(document.getElementById('strength').value);
 
             let prompt, prompt2;
             if (promptMode === 'different' && !random) {
@@ -1153,6 +1192,10 @@
                     formData.append('random', random);
                     formData.append('count', count);
                     formData.append('orientation', orientation);
+                    formData.append('size', size);
+                    formData.append('steps', steps);
+                    if (seed !== null) formData.append('seed', seed);
+                    formData.append('strength', strength);
                     formData.append('image', selectedImageFile);
                     res = await fetch('/api/generate', {
                         method: 'POST',
@@ -1162,7 +1205,7 @@
                     res = await fetch('/api/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, prompt2, prompt_mode: promptMode, random, count, orientation })
+                        body: JSON.stringify({ prompt, prompt2, prompt_mode: promptMode, random, count, orientation, size, steps, seed })
                     });
                 }
                 const data = await res.json();

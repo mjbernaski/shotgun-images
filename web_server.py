@@ -42,7 +42,7 @@ def load_config():
     with open(config_path, "r") as f:
         return json.load(f)
 
-def run_generation(job_id, prompt, use_random, steering_concept, count, image_base64=None, prompt_mode="same", prompt2=None, orientation="landscape"):
+def run_generation(job_id, prompt, use_random, steering_concept, count, image_base64=None, prompt_mode="same", prompt2=None, orientation="landscape", size="1mp", steps=25, seed=None, strength=0.75):
     """Background thread for running generation."""
     global current_job_id
     current_job_id = job_id
@@ -102,7 +102,7 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_endpoint = {
-                executor.submit(generate_and_download, ep, endpoint_prompts[ep["name"]], image_base64, orientation): ep
+                executor.submit(generate_and_download, ep, endpoint_prompts[ep["name"]], image_base64, orientation, size, steps, seed, strength): ep
                 for ep in ENDPOINTS
             }
 
@@ -170,6 +170,11 @@ def api_generate():
         count = int(request.form.get("count", 1))
         prompt_mode = request.form.get("prompt_mode", "same")
         orientation = request.form.get("orientation", "landscape")
+        size = request.form.get("size", "1mp")
+        steps = int(request.form.get("steps", 25))
+        seed_str = request.form.get("seed", "")
+        seed = int(seed_str) if seed_str else None
+        strength = float(request.form.get("strength", 0.75))
         if "image" in request.files:
             image_file = request.files["image"]
             if image_file.filename:
@@ -192,6 +197,10 @@ def api_generate():
         count = int(data.get("count", 1))
         prompt_mode = data.get("prompt_mode", "same")
         orientation = data.get("orientation", "landscape")
+        size = data.get("size", "1mp")
+        steps = int(data.get("steps", 25))
+        seed = data.get("seed")
+        strength = float(data.get("strength", 0.75))
         image_base64 = data.get("image")
 
     if not use_random and not prompt:
@@ -227,7 +236,11 @@ def api_generate():
         "image_base64": image_base64,
         "prompt_mode": prompt_mode,
         "prompt2": prompt2,
-        "orientation": orientation
+        "orientation": orientation,
+        "size": size,
+        "steps": steps,
+        "seed": seed,
+        "strength": strength
     })
 
     return jsonify({"job_id": job_id, "status": "queued", "queue_position": queue_position})
