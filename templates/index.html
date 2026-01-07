@@ -37,6 +37,19 @@
             color: #00d4ff;
             font-size: 1.1rem;
         }
+        .clear-queue-btn {
+            background: none;
+            border: 1px solid #666;
+            color: #888;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .clear-queue-btn:hover {
+            border-color: #f44336;
+            color: #f44336;
+        }
         .queue-badge {
             background: #00d4ff;
             color: #000;
@@ -574,7 +587,10 @@
     <div class="sidebar">
         <div class="sidebar-header">
             <h2>Queue</h2>
-            <span class="queue-badge" id="queue-badge">0</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="clear-queue-btn" onclick="clearQueue()" title="Clear queue and history">Clear</button>
+                <span class="queue-badge" id="queue-badge">0</span>
+            </div>
         </div>
         <div class="queue-list" id="queue-list"></div>
     </div>
@@ -854,6 +870,16 @@
                 loadQueue();
             } catch (e) {
                 console.error('Failed to cancel job:', e);
+            }
+        }
+
+        async function clearQueue() {
+            try {
+                await fetch('/api/queue/clear', { method: 'POST' });
+                loadQueue();
+                document.getElementById('results').innerHTML = '';
+            } catch (e) {
+                console.error('Failed to clear queue:', e);
             }
         }
 

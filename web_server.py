@@ -293,6 +293,28 @@ def api_cancel_job(job_id):
     job["status"] = "cancelled"
     return jsonify({"success": True, "job_id": job_id})
 
+@app.route("/api/queue/clear", methods=["POST"])
+def api_clear_queue():
+    """Clear all pending and completed jobs from the queue."""
+    global jobs
+
+    # Clear the queue
+    while not job_queue.empty():
+        try:
+            job_queue.get_nowait()
+            job_queue.task_done()
+        except:
+            break
+
+    # Remove all jobs except the currently running one
+    if current_job_id:
+        current = jobs.get(current_job_id)
+        jobs = {current_job_id: current} if current else {}
+    else:
+        jobs = {}
+
+    return jsonify({"success": True})
+
 @app.route("/images/<path:filename>")
 def serve_image(filename):
     output_dir = CONFIG.get("output_directory", ".")
