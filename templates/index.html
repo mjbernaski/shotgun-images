@@ -161,16 +161,24 @@
         }
         textarea {
             width: 100%;
-            padding: 12px;
+            padding: 10px 12px;
             border: 1px solid #333;
             border-radius: 8px;
             background: #0f0f23;
             color: #fff;
             font-size: 16px;
-            resize: vertical;
-            min-height: 80px;
+            resize: none;
+            min-height: 38px;
+            height: 38px;
+            overflow: hidden;
+            transition: height 0.15s ease;
         }
         textarea:focus { outline: none; border-color: #00d4ff; }
+        textarea.expanded {
+            height: 80px;
+            overflow-y: auto;
+            resize: vertical;
+        }
 
         .options {
             display: flex;
@@ -1285,10 +1293,6 @@
                     Object.values(run.endpoint_prompts).some((p, i, arr) => i > 0 && p !== arr[0]);
 
                 html += `<div class="result-group">`;
-                if (!hasDifferentPrompts) {
-                    const promptId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-                    html += `<div class="result-prompt"><strong>Prompt:</strong> <button class="copy-btn" onclick="copyPrompt(document.getElementById('${promptId}').textContent, this)" title="Copy to clipboard"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><span id="${promptId}">${escapeHtml(run.prompt)}</span></div>`;
-                }
                 html += `<div class="image-grid">`;
 
                 for (const img of run.images) {
@@ -1310,7 +1314,12 @@
                         </div>`;
                     }
                 }
-                html += '</div></div>';
+                html += '</div>';
+                if (!hasDifferentPrompts) {
+                    const promptId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                    html += `<div class="result-prompt" style="margin-top:12px;margin-bottom:0"><strong>Prompt:</strong> <button class="copy-btn" onclick="copyPrompt(document.getElementById('${promptId}').textContent, this)" title="Copy to clipboard"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><span id="${promptId}">${escapeHtml(run.prompt)}</span></div>`;
+                }
+                html += '</div>';
             }
 
             container.innerHTML = html;
@@ -1368,6 +1377,13 @@
                 console.error('Failed to copy:', e);
             }
         }
+
+        document.querySelectorAll('textarea').forEach(ta => {
+            ta.addEventListener('focus', () => ta.classList.add('expanded'));
+            ta.addEventListener('blur', () => {
+                if (!ta.value.trim()) ta.classList.remove('expanded');
+            });
+        });
 
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') closeModal();
