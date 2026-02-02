@@ -157,6 +157,10 @@ worker_thread = None
 def index():
     return render_template("index.html")
 
+@app.route("/gallery")
+def gallery():
+    return render_template("gallery.html")
+
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
     image_base64 = None
@@ -361,7 +365,8 @@ def api_gallery():
                 "size": stat.st_size
             })
     images.sort(key=lambda x: x["mtime"], reverse=True)
-    return jsonify(images[:100])
+    limit = min(int(request.args.get("limit", 100)), 1000)
+    return jsonify(images[:limit])
 
 if __name__ == "__main__":
     config = load_config()
