@@ -667,6 +667,19 @@
                             </select>
                         </div>
                         <div class="checkbox-group">
+                            <label for="guidance" style="margin:0">Guidance:</label>
+                            <select id="guidance">
+                                <option value="">Auto</option>
+                                <option value="random" selected>Random</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3.5">3.5</option>
+                                <option value="5">5</option>
+                                <option value="7">7</option>
+                                <option value="10">10</option>
+                            </select>
+                        </div>
+                        <div class="checkbox-group">
                             <label for="count" style="margin:0">Count:</label>
                             <input type="number" id="count" value="1" min="1" max="10">
                         </div>
@@ -1160,6 +1173,7 @@
             const steps = 25;
             const seed = null;
             const strength = 0.75;
+            const guidance = document.getElementById('guidance').value;
 
             let prompt, prompt2;
             if (promptMode === 'different' && !random) {
@@ -1195,6 +1209,7 @@
                     formData.append('steps', steps);
                     if (seed !== null) formData.append('seed', seed);
                     formData.append('strength', strength);
+                    if (guidance) formData.append('guidance_scale', guidance);
                     formData.append('image', selectedImageFile);
                     res = await fetch('/api/generate', {
                         method: 'POST',
@@ -1204,7 +1219,7 @@
                     res = await fetch('/api/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, prompt2, prompt_mode: promptMode, random, count, orientation, size, steps, seed })
+                        body: JSON.stringify({ prompt, prompt2, prompt_mode: promptMode, random, count, orientation, size, steps, seed, guidance_scale: guidance || undefined })
                     });
                 }
                 const data = await res.json();
@@ -1304,7 +1319,7 @@
                             <div class="image-meta">
                                 <span class="endpoint">${img.endpoint.name}</span><br>
                                 ${hasDifferentPrompts ? `<div style="color:#ccc;margin:4px 0;font-size:0.75rem">${escapeHtml(promptUsed.slice(0, 80))}${promptUsed.length > 80 ? '...' : ''} <button class="copy-btn" data-prompt="${escapeHtml(promptUsed)}" onclick="copyPrompt(this.dataset.prompt, this)" title="Copy to clipboard"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>` : ''}
-                                Seed: ${img.stats?.seed || 'N/A'} | ${img.duration?.toFixed(1)}s
+                                Seed: ${img.stats?.seed || 'N/A'}${run.guidance_scale != null ? ` | G: ${run.guidance_scale}` : ''} | ${img.duration?.toFixed(1)}s
                                 <button class="use-as-input-btn" onclick="useAsInput('/images/${filename}', event)">Use as input</button>
                             </div>
                         </div>`;

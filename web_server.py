@@ -42,7 +42,7 @@ def load_config():
     with open(config_path, "r") as f:
         return json.load(f)
 
-def run_generation(job_id, prompt, use_random, steering_concept, count, image_base64=None, prompt_mode="same", prompt2=None, orientation="landscape", size="1mp", steps=25, seed=None, strength=0.75):
+def run_generation(job_id, prompt, use_random, steering_concept, count, image_base64=None, prompt_mode="same", prompt2=None, orientation="landscape", size="1mp", steps=25, seed=None, strength=0.75, guidance_scale=None):
     """Background thread for running generation."""
     global current_job_id
     current_job_id = job_id
@@ -100,9 +100,11 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
             jobs[job_id]["endpoint_status"][ep["name"]] = {"state": "generating", "start_time": start_time, "elapsed": None}
 
         import concurrent.futures
+        import random as rng
+        gs = rng.choice([1, 2, 3.5, 5, 7, 10]) if guidance_scale == "random" else guidance_scale
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_endpoint = {
-                executor.submit(generate_and_download, ep, endpoint_prompts[ep["name"]], image_base64, orientation, size, steps, seed, strength): ep
+                executor.submit(generate_and_download, ep, endpoint_prompts[ep["name"]], image_base64, orientation, size, steps, seed, strength, gs): ep
                 for ep in ENDPOINTS
             }
 
@@ -123,6 +125,7 @@ def run_generation(job_id, prompt, use_random, steering_concept, count, image_ba
         jobs[job_id]["results"].append({
             "prompt": endpoint_prompts.get(ENDPOINTS[0]["name"], ""),
             "endpoint_prompts": endpoint_prompts,
+            "guidance_scale": gs,
             "images": run_results
         })
 
@@ -179,6 +182,13 @@ def api_generate():
         seed_str = request.form.get("seed", "")
         seed = int(seed_str) if seed_str else None
         strength = float(request.form.get("strength", 0.75))
+        guidance_scale_str = request.form.get("guidance_scale", "")
+        if guidance_scale_str == "random":
+            guidance_scale = "random"
+        elif guidance_scale_str:
+            guidance_scale = float(guidance_scale_str)
+        else:
+            guidance_scale = None
         if "image" in request.files:
             image_file = request.files["image"]
             if image_file.filename:
@@ -205,6 +215,13 @@ def api_generate():
         steps = int(data.get("steps", 25))
         seed = data.get("seed")
         strength = float(data.get("strength", 0.75))
+        guidance_scale_raw = data.get("guidance_scale")
+        if guidance_scale_raw == "random":
+            guidance_scale = "random"
+        elif guidance_scale_raw is not None:
+            guidance_scale = float(guidance_scale_raw)
+        else:
+            guidance_scale = None
         image_base64 = data.get("image")
 
     if not use_random and not prompt:
@@ -244,7 +261,8 @@ def api_generate():
         "size": size,
         "steps": steps,
         "seed": seed,
-        "strength": strength
+        "strength": strength,
+        "guidance_scale": guidance_scale
     })
 
     return jsonify({"job_id": job_id, "status": "queued", "queue_position": queue_position})

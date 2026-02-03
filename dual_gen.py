@@ -71,7 +71,7 @@ def log_result(result, prompt):
                 "error": result.get("error", "Unknown error")
             })
 
-def generate_and_download(endpoint, prompt, image_base64=None, orientation=None, size=None, steps=None, seed=None, strength=0.75):
+def generate_and_download(endpoint, prompt, image_base64=None, orientation=None, size=None, steps=None, seed=None, strength=0.75, guidance_scale=None):
     """
     Sends a generation request to the endpoint and downloads the result.
     Optionally accepts a base64-encoded image for image-to-image generation.
@@ -89,6 +89,8 @@ def generate_and_download(endpoint, prompt, image_base64=None, orientation=None,
         payload["steps"] = steps
     if seed is not None:
         payload["seed"] = seed
+    if guidance_scale is not None:
+        payload["guidance_scale"] = guidance_scale
     if image_base64:
         if not image_base64.startswith("data:"):
             # Detect image type from base64 data
